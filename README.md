@@ -17,7 +17,7 @@ Receipt verification for Malaysian small businesses: compare receipt details wit
 
 - [Live demo](https://paysah.replit.app/#orders)
 - [GitHub repository](https://github.com/UTeMkuCemerlang/PaySah)
-- Public pitch video: pending completion.
+- [Public pitch video](https://youtu.be/4aPbn72CRjA)
 - [Slide deck](submission/PaySah-Town.pdf)
 - [Submission files and remaining items](submission/README.md)
 
@@ -140,8 +140,10 @@ Independent bank evidence is the main integration constraint, so the prototype u
 - Improve GPU cold-start latency and measure extraction quality across more receipt formats.
 - Expand channel replay testing and validate the workflow with small merchants.
 
-## Submission status and license
+## Submission Status and License
 
-The proposal, technical declaration, slide deck and both platform proof PDFs are included. The public pitch video link is still pending. Uploaded documents have not been certified here for signature/date completeness; designated collaborator access also remains to be checked. [The organizer's template](https://github.com/michaelzhngg/SDC_Hackathon_Submission_Template) defines the submission format.
+The PaySah pitching video has been completed and is available through the link provided above. The repository includes the project proposal, technical tools declaration, pitch deck and platform proof documents.
 
-Licensed under [Apache-2.0](LICENSE). Third-party packages retain their own licenses. See the [technical tools declaration](submission/SDC2026_UTeMkuCemerlang_TechDeclaration_final.pdf) and supporting [source disclosure](src/submission/TOOLS_DECLARATION.md).
+The prototype demonstrates AI-assisted receipt extraction, rule-based payment verification, role-based approval, and receipt intake through Telegram and Google Forms. The demonstration uses synthetic receipts and bank records; it does not connect to a live bank or payment gateway.
+
+Licensed under [Apache-2.0](LICENSE). Third-party packages retain their respective licenses. See the [technical tools declaration](submission/SDC2026_UTeMkuCemerlang_TechDeclaration_final.pdf) and supporting [source disclosure](src/submission/TOOLS_DECLARATION.md).
