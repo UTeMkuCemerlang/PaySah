@@ -48,6 +48,7 @@
     "db:seed": "tsx --env-file-if-exists=.env scripts/db-setup.ts seed",
     "db:check": "tsx --env-file-if-exists=.env scripts/db-check.ts",
     "eval:runpod-vlm": "tsx --env-file-if-exists=.env scripts/eval-runpod-vlm.ts",
+    "eval:openai-vlm": "tsx --env-file-if-exists=.env scripts/eval-openai-vlm.ts",
     "runpod:check": "tsx --env-file-if-exists=.env scripts/eval-runpod-vlm.ts --limit=1",
     "test:intake": "tsx --env-file-if-exists=.env --test tests/integration/intake.test.ts",
     "smoke:intake": "tsx --env-file-if-exists=.env scripts/smoke-intake.ts",
