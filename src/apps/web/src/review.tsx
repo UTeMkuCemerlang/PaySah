@@ -43,12 +43,13 @@ function FieldEditor({receipt,disabled,onSave,onCancel}:{receipt:Receipt;disable
 }
 
 export function OrderDetail({api,actor,id}:{api:ApiClient;actor:Actor;id:string}){
-  const resource=useResource(s=>api.get<Review>(`/orders/${id}/review`,s),[api,id],10000);
+  const resource=useResource(s=>api.get<Review>(`/orders/${id}/review`,s),[api,id],5000);
   const fixtures=useResource(s=>api.get<{fixtures:Array<{id:string}>}>('/demo/receipt-fixtures',s),[api]);
   const [chosen,setChosen]=useState('normal'),[selected,setSelected]=useState(''),[editing,setEditing]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState<unknown>(),[message,setMessage]=useState(''),[attested,setAttested]=useState(false),[reason,setReason]=useState(''),[copied,setCopied]=useState(false);
   const [editorReceipt,setEditorReceipt]=useState<Receipt>(),[editorVersion,setEditorVersion]=useState(1);
   const [newEvidence,setNewEvidence]=useState(false),seenReceipt=useRef<string|null|undefined>(undefined);
   const pending=useRef(false),data=resource.value,order=data?.order;
+  useEffect(()=>{setAttested(false);},[order?.version,data?.verification?.id,data?.settings.policy_version,data?.receipts[0]?.revision]);
   useEffect(()=>{
     if(!data)return;
     const latest=data.receipts[0]?.id??null;
@@ -59,7 +60,7 @@ export function OrderDetail({api,actor,id}:{api:ApiClient;actor:Actor;id:string}
   const preferred=data?.verification&&(data.verification.active||order?.payment_state==='PAID')?data.verification.receipt_id:data?.receipts[0]?.id;
   const receipt=editing&&editorReceipt?(data?.receipts.find(r=>r.id===editorReceipt.id)??editorReceipt):(data?.receipts.find(r=>r.id===(selected||preferred))??data?.receipts[0]);
   const verification=data?.verification?.receipt_id===receipt?.id?data?.verification:null;
-  const current=!!verification?.active&&verification.order_version===order?.version&&verification.evidence_revision===receipt?.revision;
+  const current=!!verification?.active&&verification.order_version===order?.version&&verification.evidence_revision===receipt?.revision&&verification.result.policy_version===data?.settings.policy_version;
   const approval=data?.approvals.find(a=>a.verification_id===verification?.id&&a.status==='PENDING');
   const waiting=!!receipt&&['PENDING','RUNNING'].includes(receipt.extraction_state);
 
@@ -80,7 +81,7 @@ export function OrderDetail({api,actor,id}:{api:ApiClient;actor:Actor;id:string}
   const eligible=editable&&current&&!!verification?.result.eligible;
   const canConfirm=eligible&&verification?.result.required_role==='CASHIER';
   const workflowStep=o.fulfillment_state==='RELEASED'?4:o.payment_state==='PAID'?3:current&&eligible?2:receipt?1:0;
-  const nextStep=o.fulfillment_state==='RELEASED'?'Complete — payment and release are recorded.':o.payment_state==='PAID'?(o.total_sen>50000&&actor.role!=='OWNER'?'Payment confirmed. An Owner must release this high-value order.':'Payment confirmed. Review the order, then release it separately.'):!receipt?'Choose a synthetic receipt below to start this review.':waiting?'Reading the receipt. You can review the image while you wait.':!current?'Review the receipt fields, then run checks against bank evidence.':!eligible?'Payment is blocked. Review the reasons below and obtain valid evidence.':approval&&actor.role!=='OWNER'?'Sent for Owner review. Keep this order on hold.':verification?.result.required_role==='OWNER'?'Owner review required. Review the evidence and record a decision.':'Evidence matched. Review the details before confirming payment.';
+  const nextStep=o.fulfillment_state==='RELEASED'?'Complete — payment and release are recorded.':o.payment_state==='PAID'?(o.total_sen>data.settings.release_owner_threshold_sen&&actor.role!=='OWNER'?'Payment confirmed. An Owner must release this high-value order.':'Payment confirmed. Review the order, then release it separately.'):!receipt?'Choose a synthetic receipt below to start this review.':waiting?'Reading the receipt. You can review the image while you wait.':!current?'Review the receipt fields, then run checks against bank evidence.':!eligible?'Payment is blocked. Review the reasons below and obtain valid evidence.':approval&&actor.role!=='OWNER'?'Sent for Owner review. Keep this order on hold.':verification?.result.required_role==='OWNER'?'Owner review required. Review the evidence and record a decision.':'Evidence matched. Review the details before confirming payment.';
   async function attach(){await act(async()=>{const result=await api.write<{receipt:Receipt}>(`/orders/${id}/demo-receipt-images`,{fixture_id:chosen,expected_version:o.version});setSelected(result.receipt.id);setEditing(false);},'Synthetic receipt attached. Check its fields and independent evidence.');}
   async function runChecks(){if(receipt)await act(()=>api.write(`/orders/${id}/verifications`,{receipt_id:receipt.id,expected_version:o.version}),'Checks completed. Payment has not been confirmed.');}
   async function decide(decision:'APPROVE'|'REJECT'){
@@ -90,9 +91,9 @@ export function OrderDetail({api,actor,id}:{api:ApiClient;actor:Actor;id:string}
   }
   return <>
     <a className="back-link" href="#orders">← Back to orders</a>
-    <div className="page-heading detail-heading"><div><span className="eyebrow">Verify receipt / Order details</span><h1>{o.external_id}</h1><p className="muted">Created {time(o.created_at)} MYT</p></div><div className="heading-actions"><Badge value={o.payment_state}/><Badge value={o.fulfillment_state}/><button className="button ghost small" onClick={resource.refresh} disabled={busy||resource.loading}>{resource.loading?'Refreshing…':'Refresh evidence'}</button></div></div>
+    <div className="page-heading detail-heading"><div><span className="eyebrow">Verify receipt / Order details</span><h1>{o.external_id}</h1><p className="muted">Created {time(o.created_at)} MYT · {data.settings.business_type} · Owner review above {money(data.settings.owner_review_threshold_sen)}</p></div><div className="heading-actions"><Badge value={o.payment_state}/><Badge value={o.fulfillment_state}/><button className="button ghost small" onClick={resource.refresh} disabled={busy||resource.loading}>{resource.loading?'Refreshing…':'Refresh evidence'}</button></div></div>
     <nav className="detail-jumps" aria-label="Order sections">{[['Evidence','.review-grid'],['Decision','.decision-panel'],['Order details','.order-activity']].map(([name,selector])=><button key={name} className="button ghost small" onClick={()=>{const section=document.querySelector<HTMLElement>(selector);section?.setAttribute('tabindex','-1');section?.focus({preventScroll:true});section?.scrollIntoView({block:'start'});}}>{name}</button>)}</nav>
-    <Notice error={resource.error??error}/>{message&&<div className="notice success" role="status">{message}</div>}
+    {resource.updatedAt&&<p className="fine-print">Last updated {time(resource.updatedAt)} MYT{resource.error?' · Connection interrupted; showing saved evidence.':''}</p>}<Notice error={resource.error??error}/>{message&&<div className="notice success" role="status">{message}</div>}
     {newEvidence&&<div className="notice success" role="status">New receipt received. Review the latest evidence before confirming payment.</div>}
     {editing&&editorReceipt&&data.receipts[0]?.id!==editorReceipt.id&&<div className="notice" role="status">New evidence received. Your correction draft is preserved; cancel editing to review the latest receipt.</div>}
     <IntakeLinks api={api} id={id} version={o.version} unpaid={o.payment_state==='UNPAID'}/>
@@ -132,7 +133,7 @@ export function OrderDetail({api,actor,id}:{api:ApiClient;actor:Actor;id:string}
           {approval&&<div className="owner-decision"><h3>{eligible?'Owner review pending':'Evidence review pending'}</h3>{actor.role==='OWNER'?<><label>Decision reason<textarea value={reason} maxLength={500} onChange={e=>setReason(e.target.value)} placeholder="What evidence supports this decision?"/></label>{eligible&&<label className="checkbox"><input type="checkbox" checked={attested} onChange={e=>setAttested(e.target.checked)} disabled={disabled}/>I checked the independent demo bank credit.</label>}<button className="button primary full" onClick={()=>decide('APPROVE')} disabled={disabled||!eligible||!attested||reason.trim().length<3}>Approve & confirm payment</button><button className="button danger-text full" onClick={()=>decide('REJECT')} disabled={disabled||reason.trim().length<3}>Reject receipt review</button></>:<p className="muted">{eligible?'An Owner must review this order. Switch to your shop’s Owner account to continue.':'Keep this order unpaid and on hold. The Owner can review evidence, but cannot bypass the payment block.'}</p>}</div>}
         </>:o.payment_state==='PAID'?<>
           <div className="payment-confirmed"><span aria-hidden="true">✓</span><h3>{label(o.payment_state)}</h3><p>Confirmed from independent demo bank evidence.</p></div>
-          {o.fulfillment_state==='ON_HOLD'?<><p className="muted">Payment is confirmed. Releasing the order is a separate decision.</p><button className="button primary full" disabled={disabled||(o.total_sen>50000&&actor.role!=='OWNER')} onClick={()=>act(()=>api.write(`/orders/${id}/release`,{expected_version:o.version}),'Order released. The action has been recorded.')}>Release order</button>{o.total_sen>50000&&actor.role!=='OWNER'&&<p className="muted">Only an Owner can release this high-value order.</p>}</>:<div className="notice success">Order released. Both payment and fulfilment actions are recorded separately.</div>}
+          {o.fulfillment_state==='ON_HOLD'?<><p className="muted">Payment is confirmed. Releasing the order is a separate decision.</p><button className="button primary full" disabled={disabled||(o.total_sen>data.settings.release_owner_threshold_sen&&actor.role!=='OWNER')} onClick={()=>act(()=>api.write(`/orders/${id}/release`,{expected_version:o.version}),'Order released. The action has been recorded.')}>Release order</button>{o.total_sen>data.settings.release_owner_threshold_sen&&actor.role!=='OWNER'&&<p className="muted">Only an Owner can release this high-value order.</p>}</>:<div className="notice success">Order released. Both payment and fulfilment actions are recorded separately.</div>}
         </>:<div className="notice">This payment state requires further review. Full payment and release cannot be confirmed in this demo branch.</div>}
         <p className="fine-print">All payment and release permissions are checked by the server.</p>
       </section>

@@ -70,7 +70,7 @@ try{
     await expect(page!.getByText('Payment confirmed',{exact:true})).toBeVisible();await expect(page!.getByText('Order released',{exact:true})).toBeVisible();
   });
   await check('RM780 Cashier-to-Owner handoff, disabled approval until checked and separate high-value release',async()=>{
-    await open('DEMO-A-780');await attach('high_value');await checks();await expect(page!.getByRole('button',{name:'Confirm payment',exact:true})).toHaveCount(0);await expect(page!.locator('.reason-list').getByText('More than RM 500. The Owner must review and confirm.',{exact:true})).toBeVisible();
+    await open('DEMO-A-780');await attach('high_value');await checks();await expect(page!.getByRole('button',{name:'Confirm payment',exact:true})).toHaveCount(0);await expect(page!.locator('.reason-list').getByText('Above this shop’s review threshold. The Owner must review and confirm.',{exact:true})).toBeVisible();
     await page!.getByRole('button',{name:'Request Owner review',exact:true}).click();await expect(page!.getByRole('heading',{name:'Owner review pending'})).toBeVisible();
     await switchAccount(ownerA);await page!.getByRole('link',{name:'Owner reviews',exact:true}).click();await page!.getByRole('row').filter({hasText:'DEMO-A-780'}).getByRole('link',{name:'Review evidence ↗'}).click();
     await expect(page!.getByRole('button',{name:'Approve & confirm payment',exact:true})).toBeDisabled();await page!.getByLabel('Decision reason').fill('Checked the independent synthetic booked credit.');await page!.getByRole('checkbox',{name:'I checked the independent demo bank credit.'}).check();

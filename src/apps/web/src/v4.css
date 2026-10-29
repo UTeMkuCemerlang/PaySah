@@ -27,3 +27,5 @@ html[data-no-blur] .app-shell{backdrop-filter:none;background:#d3c9f1}html[data-
 .workspace-meta,.mode-label,.workspace-region,.workspace-footer,.page-heading .muted,.overview-label p,.login-intro>p{color:#49345f}.button:disabled{color:#65596f}.login-intro>.eyebrow{color:#49345f}
 /* Disabled payment actions must remain visually distinct from available actions. */
 .button.primary:disabled,.login-card .button.primary:disabled,.task-action:disabled{background:#e5dfed;color:#65596f;border-color:#cbc2d6;box-shadow:none}
+/* A newly observed server event stays visible without moving the timeline. */
+.timeline .event-new { background: rgba(220, 202, 255, .65); border-radius: 12px; }
