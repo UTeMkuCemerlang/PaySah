@@ -7,6 +7,7 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "demo:gate": "tsx scripts/demo-gate.ts",
     "fixtures:images": "tsx scripts/generate-receipts.ts",
     "eval:ocr": "tsx scripts/evaluate-ocr.ts",
     "fixtures:ocr-expanded": "tsx scripts/generate-ocr-dataset.ts",

@@ -16,6 +16,7 @@ export class ApiError extends Error {
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 const orderColumns = 'id, external_id, customer_id, total_sen, currency, payment_state, fulfillment_state, version, created_at';
 const pagination = z.object({ limit: z.coerce.number().int().min(1).max(100).default(20), offset: z.coerce.number().int().min(0).max(100000).default(0) }).strict();
+const activityQuery=pagination.extend({order_id:z.uuid().optional(),after_seq:z.string().regex(/^\d{1,18}$/).optional()}).superRefine((v,c)=>{if(v.after_seq!==undefined&&v.offset!==0)c.addIssue({code:'custom',message:'after_seq and offset are mutually exclusive'});});
 
 export function businessRouter(pool: pg.Pool,config:Config,storage:ReceiptStorage) {
   const router = Router();
@@ -107,9 +108,11 @@ export function businessRouter(pool: pg.Pool,config:Config,storage:ReceiptStorag
     finally { client.release(); }
   });
   router.get('/activity', async (req, res) => {
-    const { limit, offset } = pagination.parse(req.query);
-    const result = await pool.query('SELECT e.id,e.actor_id,u.display_name AS actor_name,e.action,e.order_id,o.external_id,e.entity_type,e.entity_id,e.seq,e.payload,e.correlation_id,e.created_at FROM activity_events e JOIN users u ON u.tenant_id=e.tenant_id AND u.id=e.actor_id LEFT JOIN orders o ON o.tenant_id=e.tenant_id AND o.id=e.order_id WHERE e.tenant_id=$1 ORDER BY e.seq DESC LIMIT $2 OFFSET $3', [res.locals.actor.tenant_id, limit, offset]);
-    res.json({ events: result.rows, limit, offset });
+    const {limit,offset,order_id,after_seq}=activityQuery.parse(req.query);
+    const tenant=res.locals.actor.tenant_id;
+    if(order_id&&!(await pool.query('SELECT id FROM orders WHERE tenant_id=$1 AND id=$2',[tenant,order_id])).rowCount)throw new ApiError(404,'NOT_FOUND','Order not found');
+    const result = await pool.query(`SELECT e.id,e.actor_id,u.display_name AS actor_name,e.action,e.order_id,o.external_id,e.entity_type,e.entity_id,e.seq,e.payload,e.correlation_id,e.created_at FROM activity_events e JOIN users u ON u.tenant_id=e.tenant_id AND u.id=e.actor_id LEFT JOIN orders o ON o.tenant_id=e.tenant_id AND o.id=e.order_id WHERE e.tenant_id=$1 AND ($4::uuid IS NULL OR e.order_id=$4 OR (e.entity_type='order' AND e.entity_id=$4)) AND ($5::bigint IS NULL OR e.seq>$5) ORDER BY e.seq ${after_seq===undefined?'DESC':'ASC'} LIMIT $2 OFFSET $3`, [tenant,limit,offset,order_id??null,after_seq??null]);
+    res.json({events:result.rows,limit,offset,...(after_seq!==undefined?{last_seq:result.rows.at(-1)?.seq??after_seq}:{})});
   });
   // Owner-only demo reset: the shop's synthetic orders, receipts and activity return to the seeded starting point.
   router.post('/demo/reset', async (_req, res) => {

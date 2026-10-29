@@ -1,4 +1,5 @@
 import {installIntakeLinks} from '../intake/links.js';
+import {auditDenied} from './denied.js';
 import {event,supersede,evaluate,verifyReceipt,type Context} from './service.js';
 export {event,supersede} from './service.js';
 import { Router, type Request, type Response } from 'express';
@@ -65,6 +66,7 @@ export function verificationRouter(pool: pg.Pool,config:Config,storage:ReceiptSt
           // the orphan reconciler can inspect database references later.
           if(!committing)for(const cleanup of afterRollback)try{await cleanup();}catch{console.error('Receipt object cleanup pending');}
         }
+        await auditDenied(db,actor,req.path,e,res.locals.correlationId);
         throw e;
       } finally { db.release(); }
     };
@@ -163,8 +165,8 @@ export function verificationRouter(pool: pg.Pool,config:Config,storage:ReceiptSt
     res.json({approvals:(await pool.query('SELECT a.*,o.external_id,o.total_sen,v.result FROM approvals a JOIN orders o ON o.tenant_id=a.tenant_id AND o.id=a.order_id JOIN verifications v ON v.tenant_id=a.tenant_id AND v.id=a.verification_id WHERE a.tenant_id=$1 ORDER BY a.created_at DESC,a.id LIMIT $2 OFFSET $3',[res.locals.actor.tenant_id,limit,offset])).rows,limit,offset});
   });
   router.post('/approvals/:id/decision',write(decisionBody,async(c,b,req)=>{
-    owner(c.actor);
     const approval=await one(c.db,'SELECT * FROM approvals WHERE tenant_id=$1 AND id=$2 FOR UPDATE',[c.actor.tenant_id,z.uuid().parse(req.params.id)]);
+    owner(c.actor);
     if (approval.version!==b.expected_version || approval.status!=='PENDING') fail('STALE_APPROVAL','Approval changed');
     const state=await current(c,approval.verification_id);
     if (b.decision==='APPROVE' && !state.result.eligible) fail('EVIDENCE_BLOCKED','Owner approval cannot replace bank evidence');
