@@ -8,8 +8,53 @@ import {migrate,seed} from '../../scripts/database.js';
 import {createApp} from '../../apps/api/src/app.js';
 import {readConfig} from '../../apps/api/src/config.js';
 import {fixtures} from '../../apps/api/src/modules/verification/fixtures.js';
+import {withFinalistEnvironment} from '../../scripts/finalist-environment.js';
 
 const url=process.env.TEST_DATABASE_URL;
+test('reply drafts reflect current evidence and payment without sending or writing',{skip:!url},async t=>{
+ const cases=[['missing','MISSING_EVIDENCE'],['received','CHECKING'],['awaiting_bank','CHECKING'],['blocked','BLOCKED'],['matched','MATCHED'],['inactive','CHECKING'],['revision','CHECKING'],['rule','CHECKING'],['order','CHECKING'],['policy','CHECKING'],['bank','CHECKING'],['account','CHECKING'],['paid','PAID'],['released','RELEASED']] as const;
+ for(const [mode,expected]of cases)await t.test(mode,async()=>{
+  await withFinalistEnvironment(async(base,pool)=>{
+   let token='';
+   async function call(path:string,body?:unknown){const r=await fetch(base+path,{method:body===undefined?'GET':'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','Idempotency-Key':randomUUID()},body:body===undefined?undefined:JSON.stringify(body)});const b=await r.json();assert.ok(r.ok,`${path}: ${r.status} ${JSON.stringify(b)}`);return b;}
+   token=(await call('/demo/sessions',{account_id:'20000000-0000-4000-8000-000000000001'})).token;
+   const o=(await call('/orders',{external_id:`DRAFT-${randomUUID()}`,total_sen:12800})).order;
+   if(mode!=='missing'){
+    let receipt:any;
+    if(mode==='received'||mode==='awaiting_bank')receipt=(await call(`/orders/${o.id}/receipts`,{source:'FIXTURE',fixture_id:mode==='received'?'normal':'no_bank',expected_version:1})).receipt;
+    else{
+     const ref=randomUUID();await call('/demo/bank-events',{account_id:'50000000-0000-4000-8000-000000000001',provider_tx_id:ref,bank_transaction_ref:ref,amount_sen:12800,booked_at:fixtures.normal.occurred_at,expected_account_version:1});
+     receipt=(await call(`/orders/${o.id}/receipts`,{source:'MANUAL',fields:{...fixtures.normal,bank_transaction_ref:ref,...(mode==='blocked'?{recipient_account:'WRONG-ACCOUNT'}:{})},expected_version:1})).receipt;
+    }
+    if(mode!=='received'){
+     const v=(await call(`/orders/${o.id}/verifications`,{receipt_id:receipt.id,expected_version:1})).verification;
+     if(mode==='awaiting_bank')assert.equal(v.result.outcome,'AWAITING_BANK');
+     if(mode==='inactive')await pool.query('UPDATE verifications SET active=false WHERE id=$1',[v.id]);
+     if(mode==='revision')await pool.query('UPDATE receipts SET revision=revision+1 WHERE id=$1',[receipt.id]);
+     if(mode==='rule')await pool.query("UPDATE verifications SET rule_version='obsolete' WHERE id=$1",[v.id]);
+     if(mode==='order')await pool.query('UPDATE orders SET version=version+1 WHERE id=$1',[o.id]);
+     if(mode==='policy')await pool.query("UPDATE tenant_settings SET policy_version=policy_version+1 WHERE tenant_id='10000000-0000-4000-8000-000000000001'");
+     if(mode==='bank')await pool.query("UPDATE bank_transactions SET status='REVERSED' WHERE id=$1",[v.result.matched_transaction_id]);
+     if(mode==='account')await pool.query("UPDATE merchant_accounts SET active=false,version=version+1 WHERE id='50000000-0000-4000-8000-000000000001'");
+     if(mode==='paid'||mode==='released'){
+      const a=(await call(`/verifications/${v.id}/approval-requests`,{expected_version:1})).approval;
+      await call(`/approvals/${a.id}/decision`,{decision:'APPROVE',reason:'Synthetic bank evidence verified',expected_version:1});
+      if(mode==='released')await call(`/orders/${o.id}/release`,{expected_version:2});
+     }
+    }
+   }
+   const before=(await pool.query('SELECT count(*)::int AS n FROM activity_events')).rows[0].n;
+   const draft=await call(`/orders/${o.id}/reply-draft`);
+   assert.equal(draft.state,expected);assert.equal(draft.sent,false);assert.equal(draft.source,'SYNTHETIC_DEMO');
+   if(mode==='missing'){assert.match(draft.text,/not received/);assert.doesNotMatch(draft.text,/being checked|checking/i);}
+   if(mode==='blocked')assert.doesNotMatch(draft.text,/WRONG_RECIPIENT|WRONG-ACCOUNT|DUPLICATE/);
+   if(mode==='released')assert.match(draft.text,/released.*collection/);
+   assert.equal((await pool.query('SELECT count(*)::int AS n FROM activity_events')).rows[0].n,before);
+   const other=(await call('/demo/sessions',{account_id:'20000000-0000-4000-8000-000000000003'})).token;
+   assert.equal((await fetch(base+`/orders/${o.id}/reply-draft`,{headers:{Authorization:`Bearer ${other}`}})).status,404);
+  });
+ });
+});
 test('M2 PostgreSQL verification and approval safety', {skip:!url&&process.env.npm_lifecycle_event!=='test:db'},async t=>{
   assert.ok(url,'TEST_DATABASE_URL required');
   const schema=`test_${randomUUID().replaceAll('-','')}`;

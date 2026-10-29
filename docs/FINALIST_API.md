@@ -25,3 +25,11 @@ From `src/`, set a dedicated local `TEST_DATABASE_URL`, then run `npm run demo:g
 Verification `result` now includes `policy_version` and `owner_review_threshold_sen`; rule version is `rules.v2-tenant-policy`. Confirm/approval reevaluate the policy within the existing tenant write transaction. Changed policy produces `STALE_APPROVAL` for old verification results; callers must request a new verification. After payment, release reads the current independent release threshold. Existing payment is never undone by a policy change. A missing policy returns 503 `POLICY_UNAVAILABLE`.
 
 Readiness now requires migration 006 and its exact checksum. Health also returns `commit`, build-time clean source Git SHA or `unknown`. This is additive; existing session/write/version/idempotency responses are retained.
+
+## Live review fixes (2026-10-30)
+
+Health and readiness use the shared `APP_STAGE = FINALIST`. Build identity resolves a valid explicit `PAYSAH_BUILD_COMMIT`, then clean Git HEAD, then an archive `.build-commit` only when Git metadata is unavailable. A dirty or unverifiable Git checkout remains `unknown` without an explicit override; a stale archive marker cannot make it look clean. Invalid explicit values fail closed to `unknown`. Build metadata records and logs its source (`env`, `git`, `file`, `unknown`). Explicit injection is the deployer's assertion about verified source, not a remote-main lookup.
+
+`GET /demo/receipt-fixtures` retains id/fields and adds a readable `label` and `amount_sen`. Fixture IDs and selection values are unchanged. The browser initially selects the single reference match, then the single amount match, then normal. It never attaches automatically and preserves a manual choice until the order changes.
+
+`GET /orders/:id/reply-draft` retains `text`, `source:SYNTHETIC_DEMO`, `sent:false` and adds `state`: MISSING_EVIDENCE, CHECKING, BLOCKED, MATCHED, PAID or RELEASED. A read-only repeatable snapshot checks the current receipt, verification activity/versions, policy and evidence fingerprint before calling a match current. Changed bank/account evidence also makes the draft CHECKING. It does not enqueue extraction, call a model, write business state or send messages. Blocked text omits internal evidence reasons. Paid/released wording comes from persisted payment/fulfilment states.

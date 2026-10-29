@@ -4,6 +4,7 @@ import express from 'express';
 import { randomUUID } from 'node:crypto';
 import type { Config } from './config.js';
 import type { Health } from '../../../packages/contracts/src/index.js';
+import {APP_STAGE} from '../../../packages/contracts/src/index.js';
 import type pg from 'pg';
 import { businessRouter, apiErrorHandler } from './business.js';
 import { checkReady } from './ready.js';
@@ -26,13 +27,13 @@ export function createApp(config: Config, webRoot?: string, pool?: pg.Pool,stora
     try {
       if (!pool) throw new Error('Database required');
       await Promise.race([checkReady(pool),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Timeout')),2500);})]);
-      res.json({status:'ready',stage:'M2'});
+      res.json({status:'ready',stage:APP_STAGE});
     } catch { res.status(503).json({code:'NOT_READY',message:'Database or migrations not ready',correlation_id:randomUUID()}); }
     finally {clearTimeout(timer);}
   });
   app.get('/api/v1/health', (_req, res) => {
     const health: Health = {
-      status: 'ok', service: 'paysah-api', stage: 'M2', demo: true,
+      status: 'ok', service: 'paysah-api', stage:APP_STAGE, demo: true,
       commit:buildCommit(),
       extractor_mode: config.EXTRACTOR_MODE,
       database: config.DATABASE_URL ? 'not_checked' : 'not_configured',

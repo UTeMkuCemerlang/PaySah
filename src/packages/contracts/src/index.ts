@@ -1,9 +1,11 @@
 import { z } from 'zod';
 
+export const APP_STAGE='FINALIST' as const;
+export const receiptFixtureLabels:Record<string,string>={normal:'Normal · RM 128',high_value:'High value · RM 780',partial:'Partial payment · RM 50',wrong_account:'Wrong receiving account',scheduled:'Scheduled transfer',money_request:'Request for money',no_bank:'No matching bank credit',bakery_300:'Bakery order · RM 300',laundry_300:'Laundry order · RM 300'};
 export const extractorModeSchema = z.enum(['fixture', 'manual', 'cpu_ocr', 'runpod']);
 export const healthSchema = z.object({
   status: z.literal('ok'), service: z.literal('paysah-api'),
-  stage: z.literal('M2'), demo: z.literal(true),
+  stage: z.literal(APP_STAGE), demo: z.literal(true),
   commit:z.string().regex(/^(unknown|[0-9a-f]{40})$/),
   extractor_mode: extractorModeSchema,
   database: z.enum(['not_configured', 'not_checked']),

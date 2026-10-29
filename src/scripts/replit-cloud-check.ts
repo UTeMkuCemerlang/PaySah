@@ -2,6 +2,7 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {createHash,randomUUID} from 'node:crypto';
 import {resolve} from 'node:path';
 import assert from 'node:assert/strict';
+import {APP_STAGE,healthSchema} from '../packages/contracts/src/index.js';
 
 // Usage: npm run replit:cloud-check -- https://<deployment-url>            (first run)
 //        npm run replit:cloud-check -- https://<deployment-url> --after-restart  (after Republish/restart)
@@ -29,8 +30,8 @@ let ids:{order_id:string;receipt_id:string;image_sha256:string}|undefined;
 try{
   await step('public page and readiness',async()=>{
     const page=await fetch(site+'/');assert.equal(page.status,200);assert.match(await page.text(),/<div id="root">|PaySah/);
-    assert.equal((await fetch(base+'/ready')).status,200);
-    const health=await (await fetch(base+'/health')).json();assert.ok(['runpod','cpu_ocr'].includes(health.extractor_mode),'deployment is not in a real reading mode');mode=health.extractor_mode;
+    const readiness=await fetch(base+'/ready');assert.equal(readiness.status,200);assert.equal((await readiness.json()).stage,APP_STAGE);
+    const health=healthSchema.parse(await (await fetch(base+'/health')).json());assert.ok(['runpod','cpu_ocr'].includes(health.extractor_mode),'deployment is not in a real reading mode');mode=health.extractor_mode;
     return `page 200, ready 200, extractor_mode ${mode}`;
   });
   const owner=await login(OWNER_B);

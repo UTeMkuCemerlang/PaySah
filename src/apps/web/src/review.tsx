@@ -1,4 +1,5 @@
 import {IntakeLinks} from './intake-links.js';
+import {defaultFixture,type FixtureChoice} from './fixture-selection.js';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {receiptFieldsSchema,type ReceiptFields} from '../../../packages/contracts/src/index.js';
 import {ApiClient} from './api.js';
@@ -44,11 +45,16 @@ function FieldEditor({receipt,disabled,onSave,onCancel}:{receipt:Receipt;disable
 
 export function OrderDetail({api,actor,id}:{api:ApiClient;actor:Actor;id:string}){
   const resource=useResource(s=>api.get<Review>(`/orders/${id}/review`,s),[api,id],5000);
-  const fixtures=useResource(s=>api.get<{fixtures:Array<{id:string}>}>('/demo/receipt-fixtures',s),[api]);
+  const fixtures=useResource(s=>api.get<{fixtures:FixtureChoice[]}>('/demo/receipt-fixtures',s),[api]);
   const [chosen,setChosen]=useState('normal'),[selected,setSelected]=useState(''),[editing,setEditing]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState<unknown>(),[message,setMessage]=useState(''),[attested,setAttested]=useState(false),[reason,setReason]=useState(''),[copied,setCopied]=useState(false);
   const [editorReceipt,setEditorReceipt]=useState<Receipt>(),[editorVersion,setEditorVersion]=useState(1);
   const [newEvidence,setNewEvidence]=useState(false),seenReceipt=useRef<string|null|undefined>(undefined);
   const pending=useRef(false),data=resource.value,order=data?.order;
+  const fixtureOrder=useRef(id),fixtureManual=useRef(false);
+  useEffect(()=>{
+    if(fixtureOrder.current!==id){fixtureOrder.current=id;fixtureManual.current=false;}
+    if(order?.id===id&&fixtures.value&&!fixtureManual.current)setChosen(defaultFixture(order,fixtures.value.fixtures));
+  },[id,order?.id,order?.external_id,order?.total_sen,fixtures.value]);
   useEffect(()=>{setAttested(false);},[order?.version,data?.verification?.id,data?.settings.policy_version,data?.receipts[0]?.revision]);
   useEffect(()=>{
     if(!data)return;
@@ -66,7 +72,7 @@ export function OrderDetail({api,actor,id}:{api:ApiClient;actor:Actor;id:string}
 
   useEffect(()=>{setAttested(false);},[verification?.id,verification?.active,order?.version,receipt?.id,receipt?.revision]);
   const extractions=useResource(s=>receipt?api.get<{runs:Extraction[]}>(`/receipts/${receipt.id}/extractions`,s):Promise.resolve({runs:[]}),[api,receipt?.id,receipt?.revision]);
-  const reply=useResource(s=>api.get<{text:string;sent:boolean}>(`/orders/${id}/reply-draft`,s),[api,id,order?.version]);
+  const reply=useResource(s=>api.get<{text:string;sent:boolean}>(`/orders/${id}/reply-draft`,s),[api,id,order?.version,receipt?.id,receipt?.revision,verification?.id,verification?.active,data?.settings.policy_version],5000);
   async function act(task:()=>Promise<unknown>,success:string){
     if(pending.current)return false;pending.current=true;setBusy(true);setError(undefined);setMessage('');
     try{await task();setMessage(success);setAttested(false);setReason('');resource.refresh();return true;}
@@ -104,7 +110,7 @@ export function OrderDetail({api,actor,id}:{api:ApiClient;actor:Actor;id:string}
     <div className="evidence-summary"><div><span className="eyebrow">Order amount</span><strong data-testid="order-amount">{money(o.total_sen)}</strong><p>The amount this order needs</p></div><div><span className="eyebrow">Receipt amount</span><strong data-testid="receipt-amount">{money(receipt?.fields.amount_sen)}</strong><p>{receipt?label(receipt.fields_provider):'Attach a synthetic receipt'}</p></div><div className={bankAmount?'bank-evidence':'no-evidence'}><span className="eyebrow">Bank credit</span><strong data-testid="bank-amount">{money(bankAmount)}</strong><p>{data.allocations.length?'Allocated to this order':bankAmount?'Demo bank credit found · not yet confirmed':'A receipt alone cannot establish this'}</p></div></div>
     <div className="review-grid"><div className="review-primary">
       <section className="panel"><div className="panel-heading"><div><h2>Receipt evidence</h2><p className="muted">Original image and the fields it claims</p></div>{receipt&&<Badge value={receipt.extraction_state}/>}</div>
-        {editable&&<div className="receipt-picker"><label>Synthetic receipt<select aria-label="Synthetic receipt" value={chosen} onChange={e=>setChosen(e.target.value)} disabled={disabled||fixtures.loading}>{fixtures.value?.fixtures.map(f=><option value={f.id} key={f.id}>{fixtureLabels[f.id]??f.id}</option>)}</select></label><button className="button secondary" onClick={attach} disabled={disabled||fixtures.loading||!!fixtures.error}>Attach synthetic receipt</button></div>}
+        {editable&&<div className="receipt-picker"><label>Synthetic receipt<select aria-label="Synthetic receipt" value={chosen} onChange={e=>{fixtureManual.current=true;setChosen(e.target.value);}} disabled={disabled||fixtures.loading}>{fixtures.value?.fixtures.map(f=><option value={f.id} key={f.id}>{f.label??fixtureLabels[f.id]??'Synthetic receipt'}</option>)}</select></label><button className="button secondary" onClick={attach} disabled={disabled||fixtures.loading||!!fixtures.error}>Attach synthetic receipt</button></div>}
         <Notice error={fixtures.error}/>
         {data.receipts.length>1&&<label className="receipt-select">Attached receipt<select value={receipt?.id??''} onChange={e=>{setSelected(e.target.value);setEditing(false);}}>{data.receipts.map((r,index)=><option key={r.id} value={r.id}>Receipt {data.receipts.length-index} · {label(r.fields_provider)} · {time(r.created_at)}</option>)}</select></label>}
         {receipt?<>

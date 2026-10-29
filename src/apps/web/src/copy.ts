@@ -13,5 +13,5 @@ export const labels:Record<string,string>={
 export const label=(value:string)=>labels[value]??value.replaceAll('_',' ').toLowerCase();
 export const money=(sen:number|null|undefined)=>sen===null||sen===undefined?'Not established':`RM ${(sen/100).toFixed(2)}`;
 export const time=(value:string)=>new Intl.DateTimeFormat('en-MY',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Kuala_Lumpur'}).format(new Date(value));
-export const fixtureLabels:Record<string,string>={normal:'Normal · RM 128',high_value:'High value · RM 780',partial:'Partial payment · RM 50',wrong_account:'Wrong receiving account',scheduled:'Scheduled transfer',money_request:'Request for money',no_bank:'No matching bank credit'};
+export {receiptFixtureLabels as fixtureLabels} from '../../../packages/contracts/src/index.js';
 export function parseSen(value:string){if(!/^\d{1,8}(?:\.\d{1,2})?$/.test(value.trim()))throw Error('Enter a positive MYR amount with up to two decimal places.');const [whole,fraction='']=value.trim().split('.');const sen=Number(whole)*100+Number(fraction.padEnd(2,'0'));if(sen<1||sen>2147483647)throw Error('Amount is outside the supported range.');return sen;}

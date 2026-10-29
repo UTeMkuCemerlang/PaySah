@@ -1,5 +1,6 @@
 import {installIntakeLinks} from '../intake/links.js';
 import {auditDenied} from './denied.js';
+import {replyDraft} from './reply-draft.js';
 import {tenantPolicy} from './policy.js';
 import {event,supersede,evaluate,verifyReceipt,type Context} from './service.js';
 export {event,supersede} from './service.js';
@@ -7,7 +8,7 @@ import { Router, type Request, type Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { z } from 'zod';
-import { bankEventSchema, receiptFieldsSchema, receiptIntakeSchema, versionSchema } from '../../../../../packages/contracts/src/index.js';
+import { bankEventSchema, receiptFieldsSchema, receiptIntakeSchema, versionSchema,receiptFixtureLabels } from '../../../../../packages/contracts/src/index.js';
 import { ApiError, type Actor } from '../../business.js';
 import { fixtures, fingerprint } from './fixtures.js';
 import { verify, RULE_VERSION, type BankRow } from './rules.js';
@@ -75,7 +76,7 @@ export function verificationRouter(pool: pg.Pool,config:Config,storage:ReceiptSt
   installImageRoutes(router,pool,write,config,storage);
   installIntakeLinks(router,pool,write,config);
   router.get('/orders/:id/review',async(req,res)=>res.json(await orderReview(pool,res.locals.actor.tenant_id,z.uuid().parse(req.params.id))));
-  router.get('/demo/receipt-fixtures', (_req, res) => res.json({ source: 'FIXTURE', fixtures: Object.entries(fixtures).map(([id, fields]) => ({ id, fields })), note: 'Predefined synthetic fields; no OCR or uploaded image.' }));
+  router.get('/demo/receipt-fixtures', (_req, res) => res.json({ source: 'FIXTURE', fixtures: Object.entries(fixtures).map(([id, fields]) => ({ id,label:receiptFixtureLabels[id]??`Synthetic receipt · RM ${((fields.amount_sen??0)/100).toFixed(2)}`,amount_sen:fields.amount_sen,fields })), note: 'Predefined synthetic fields; no OCR or uploaded image.' }));
   router.get('/bank-accounts', async (_req, res) => {
     const result = await pool.query('SELECT id,account_identifier,active,version FROM merchant_accounts WHERE tenant_id=$1 ORDER BY id', [res.locals.actor.tenant_id]);
     res.json({ accounts: result.rows });
@@ -187,9 +188,7 @@ export function verificationRouter(pool: pg.Pool,config:Config,storage:ReceiptSt
     return {order:updated};
   }));
   router.get('/orders/:id/reply-draft',async(req,res)=>{
-    const order=await one(pool,'SELECT * FROM orders WHERE tenant_id=$1 AND id=$2',[res.locals.actor.tenant_id,z.uuid().parse(req.params.id)]);
-    const text=order.payment_state==='PAID'?`Payment of RM ${(order.total_sen/100).toFixed(2)} confirmed using demo bank evidence.`:'Payment is being checked. Please wait for confirmation.';
-    res.json({text,source:'SYNTHETIC_DEMO',sent:false});
+    res.json(await replyDraft(pool,res.locals.actor,z.uuid().parse(req.params.id),storage));
   });
   return router;
 }

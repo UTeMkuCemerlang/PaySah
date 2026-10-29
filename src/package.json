@@ -11,6 +11,7 @@
     "mock:orbyte": "tsx scripts/mock-orbyte.ts",
     "eval:e2e": "tsx scripts/evaluate-finalist.ts",
     "smoke:finalist": "tsx scripts/smoke-finalist.ts",
+    "smoke:live-fixes": "tsx scripts/smoke-live-fixes.ts",
     "score:finalist": "tsx scripts/score-finalist-study.ts",
     "fixtures:images": "tsx scripts/generate-receipts.ts",
     "eval:ocr": "tsx scripts/evaluate-ocr.ts",

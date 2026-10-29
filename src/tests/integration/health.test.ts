@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../../apps/api/src/app.js';
 import { readConfig } from '../../apps/api/src/config.js';
-import { healthSchema } from '../../packages/contracts/src/index.js';
+import { healthSchema,APP_STAGE } from '../../packages/contracts/src/index.js';
 import {resolve} from 'node:path';
 
 for (const mode of ['fixture', 'manual']) {
@@ -18,6 +18,7 @@ for (const mode of ['fixture', 'manual']) {
       const health = healthSchema.parse(await response.json());
       assert.equal(health.extractor_mode, mode);
       assert.equal(health.database, 'not_configured');
+      assert.equal(health.stage,APP_STAGE);
       const write = await fetch(`${base}/api/v1/orders`, { method: 'POST' });
       assert.equal(write.status, 503);
     } finally { await new Promise<void>((resolve, reject) => server.close(e => e ? reject(e) : resolve())); }

@@ -1,4 +1,5 @@
-import {mkdir,writeFile,access} from 'node:fs/promises';
+import {mkdir,writeFile,access,readFile} from 'node:fs/promises';
+import {APP_STAGE} from '../packages/contracts/src/index.js';
 import {createRequire} from 'node:module';
 import {resolve} from 'node:path';
 import pg from 'pg';
@@ -31,9 +32,10 @@ await check('required variables are set',async()=>{
 });
 await check('configuration parses',async()=>{const c=readConfig(env);return `prefix ${c.REPLIT_STORAGE_PREFIX}; upload ${c.UPLOAD_ACCESS_KEY?'enabled':'disabled'}`;});
 await check('compiled deployment entry exists',async()=>{await access(resolve('dist/apps/api/src/deployment.js'));await access(resolve('dist/web/index.html'));return 'dist present';});
+await check('compiled commit metadata',async()=>{const meta=JSON.parse(await readFile(resolve('dist/apps/api/src/build-version.json'),'utf8'));if(!/^[0-9a-f]{40}$/.test(meta.commit))throw Error('Build commit is unknown; build verified source with PAYSAH_BUILD_COMMIT or a clean Git checkout/archive marker');return `commit ${meta.commit}; source ${meta.source??'legacy'}`;});
 await check('sharp native module',async()=>{const png=await sharp({create:{width:8,height:8,channels:3,background:'#ffffff'}}).png().toBuffer();return `sharp ${sharp.versions.sharp}, ${png.length} byte probe`;});
 await check('English OCR language data',async()=>{const {langPath}=createRequire(import.meta.url)('@tesseract.js-data/eng') as {langPath:string};await access(resolve(langPath,'eng.traineddata.gz'));return 'eng.traineddata.gz present';});
-await check('database and migrations 001–003',async()=>{
+await check('database and migrations 001–006',async()=>{
   const pool=new pg.Pool({connectionString:env.DATABASE_URL,connectionTimeoutMillis:5000});
   try{await checkReady(pool);const n=(await pool.query("SELECT count(*) FROM orders WHERE external_id LIKE 'DEMO-%'")).rows[0].count;return `ready; ${n} seeded demo orders`;}
   finally{await pool.end();}
@@ -46,7 +48,7 @@ await check('private App Storage write/read/delete',async()=>{
   finally{await storage.remove(key);}
   return 'round trip matched SHA-256 and probe object removed';
 });
-const report={kind:'replit preflight; no secret values recorded',at:new Date().toISOString(),passed:checks.filter(c=>c.status==='PASS').length,total:checks.length,checks};
+const report={kind:'replit preflight; no secret values recorded',stage:APP_STAGE,at:new Date().toISOString(),passed:checks.filter(c=>c.status==='PASS').length,total:checks.length,checks};
 // Off Replit (local dry run) nothing is written into the proof folder.
 const dir=resolve(env.REPL_ID?'submission/proof/replit':'.local/replit-preflight-dry-run');await mkdir(dir,{recursive:true});
 const file=resolve(dir,`preflight-${report.at.replaceAll(':','-').replace('.','-')}.json`);

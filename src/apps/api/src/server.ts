@@ -1,4 +1,5 @@
 import { webRoot } from './paths.js';
+import {APP_STAGE} from '../../../packages/contracts/src/index.js';
 import { createApp } from './app.js';
 import { readConfig } from './config.js';
 import pg from 'pg';
@@ -10,7 +11,7 @@ const parsed = (() => {
 const pool = parsed.DATABASE_URL ? new pg.Pool({ connectionString: parsed.DATABASE_URL, connectionTimeoutMillis: 3000 }) : undefined;
 pool?.on('error', () => console.error('Database connection interrupted.'));
 const server = createApp(parsed, webRoot, pool).listen(parsed.PORT, parsed.HOST, () => {
-  console.log(`PaySah M2: http://${parsed.HOST}:${parsed.PORT} (demo / ${parsed.EXTRACTOR_MODE})`);
+  console.log(`PaySah ${APP_STAGE}: http://${parsed.HOST}:${parsed.PORT} (demo / ${parsed.EXTRACTOR_MODE})`);
   process.send?.({type:'ready',role:'api'});
 });
 let closing=false;

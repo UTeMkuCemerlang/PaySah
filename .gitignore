@@ -23,4 +23,5 @@ src/evaluation/m3/
 src/evaluation/ui-v4/
 src/evaluation/finalist/
 .build-commit
+.build-commit
 src/.build-commit
