@@ -50,9 +50,15 @@ export async function resetDemoTenant(pool: pg.Pool, tenantId: string, root = pr
     if (!tenant.rowCount) throw new Error('Only synthetic demo tenants can be reset');
     await client.query('UPDATE orders SET current_receipt_id=NULL WHERE tenant_id=$1', [tenantId]);
     await client.query('UPDATE receipts SET intake_message_id=NULL WHERE tenant_id=$1', [tenantId]);
+    // A public demo reset must not refund receipt-processing quotas. Keep only
+    // the current budget window's hashed identity/idempotency ledger, detached
+    // from deleted evidence. Late downloads cannot revive the rejected lease.
+    await client.query(`UPDATE intake_messages SET status='REJECTED',reason='DEMO_RESET_IMAGE',receipt_id=NULL,link_id=NULL,order_id=NULL,lease_token=NULL,lease_until=NULL
+      WHERE tenant_id=$1 AND channel='TELEGRAM' AND created_at>now()-interval '24 hours'
+      AND (receipt_id IS NOT NULL OR status IN ('RECEIVING','RETRYABLE') OR reason IN ('IMAGE_INVALID','ATTEMPTS_EXHAUSTED','DEMO_RESET_IMAGE'))`,[tenantId]);
     for (const table of ['intake_bindings', 'verification_jobs', 'receipt_jobs', 'extraction_runs', 'receipt_corrections', 'payment_allocations', 'approvals',
       'intake_messages', 'verifications', 'receipts', 'intake_links', 'activity_events', 'idempotency_keys', 'bank_transactions', 'orders', 'merchant_accounts', 'customers'])
-      await client.query(`DELETE FROM ${table} WHERE tenant_id=$1`, [tenantId]);
+      await client.query(`DELETE FROM ${table} WHERE tenant_id=$1${table==='intake_messages'?" AND (reason IS DISTINCT FROM 'DEMO_RESET_IMAGE' OR created_at<=now()-interval '24 hours')":''}`, [tenantId]);
     for (const name of (await readdir(join(root, 'db/seeds'))).filter(n => n.endsWith('.sql')).sort()) {
       await client.query(await readFile(join(root, 'db/seeds', name), 'utf8'));
     }

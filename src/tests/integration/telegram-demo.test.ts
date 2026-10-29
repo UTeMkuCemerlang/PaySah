@@ -10,6 +10,7 @@ import {readConfig} from '../../apps/api/src/config.js';
 import {receiveTelegram} from '../../apps/api/src/modules/intake/telegram.js';
 import {digest} from '../../apps/api/src/modules/intake/transaction.js';
 import {LocalReceiptStorage} from '../../apps/api/src/modules/receipts/storage.js';
+import {resetDemoTenant} from '../../apps/api/src/database-setup.js';
 
 const tenant='10000000-0000-4000-8000-000000000001';
 const env={EXTRACTOR_MODE:'cpu_ocr',TELEGRAM_ENABLED:'true',TELEGRAM_TENANT_ID:tenant,TELEGRAM_BOT_TOKEN:'synthetic-token-only',TELEGRAM_BOT_USERNAME:'paysah_test_bot',TELEGRAM_WEBHOOK_SECRET:'synthetic-secret-only-0123456789012345',INTAKE_HMAC_SECRET:'synthetic-hmac-only-012345678901234567'};
@@ -48,6 +49,13 @@ for(const quota of ['sender','tenant','global'] as const)test(`demo_link ${quota
    const tight=readConfig({...env,TELEGRAM_INTAKE_MODE:'demo_link',TELEGRAM_MAX_STARTS_PER_HOUR:'1'});
    const limited=body(222,10,`/start ${token}`);assert.equal((await receiveTelegram(pool,tight,storage,limited,download,notify)).reason,'RATE_LIMITED');
    assert.equal((await receiveTelegram(pool,tight,storage,limited,download,notify)).replayed,true);
+   await resetDemoTenant(pool,tenant);
+   assert.equal((await pool.query("SELECT count(*)::int AS n FROM intake_messages WHERE reason='DEMO_RESET_IMAGE'")).rows[0].n,1);
+   assert.equal((await receive(accepted)).status,'REJECTED');
+   await pool.query("INSERT INTO orders(id,tenant_id,external_id,total_sen) VALUES ($1,$2,$3,1900)",[order,tenant,`TG-RESET-${randomUUID()}`]);
+   await pool.query("INSERT INTO intake_links(id,tenant_id,order_id,channel,connector_id,token_hash,expires_at,created_by) VALUES ($1,$2,$3,'TELEGRAM','team-bot',$4,now()+interval '1 hour','20000000-0000-4000-8000-000000000001')",[link,tenant,order,digest(token)]);
+   assert.equal((await receive(body(987,12,`/start ${token}`))).status,'ACCEPTED');
+   assert.equal((await receive(body(987,13))).reason,'RATE_LIMITED');assert.equal(downloads,1);
    await pool.query('UPDATE tenants SET is_demo=false WHERE id=$1',[tenant]);
    await assert.rejects(receive(body(555,11,`/start ${token}`)),/demo shop/);
   }finally{await rm(root,{recursive:true,force:true});}

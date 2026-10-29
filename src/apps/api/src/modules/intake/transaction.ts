@@ -49,7 +49,7 @@ export async function receiveImage(pool:pg.Pool,config:Config,storage:ReceiptSto
     count(*) FILTER(WHERE tenant_id=$1 AND sender_hash=$2 AND created_at>now()-interval '1 hour')::int AS sender,
     count(*) FILTER(WHERE tenant_id=$1 AND created_at>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')::int AS tenant,
     count(*) FILTER(WHERE created_at>=date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')::int AS global
-    FROM intake_messages WHERE channel='TELEGRAM' AND (receipt_id IS NOT NULL OR status IN ('RECEIVING','RETRYABLE') OR reason IN ('IMAGE_INVALID','ATTEMPTS_EXHAUSTED'))`,[connector.tenant,input.senderHash])).rows[0];
+    FROM intake_messages WHERE channel='TELEGRAM' AND (receipt_id IS NOT NULL OR status IN ('RECEIVING','RETRYABLE') OR reason IN ('IMAGE_INVALID','ATTEMPTS_EXHAUSTED','DEMO_RESET_IMAGE'))`,[connector.tenant,input.senderHash])).rows[0];
    if(counts.sender>=config.TELEGRAM_MAX_IMAGES_PER_HOUR||counts.tenant>=config.TELEGRAM_MAX_TENANT_IMAGES_PER_DAY||counts.global>=config.TELEGRAM_MAX_GLOBAL_IMAGES_PER_DAY)reason='RATE_LIMITED';
   }
   const message=(await c.db.query(`INSERT INTO intake_messages(id,tenant_id,channel,connector_id,external_id,payload_hash,sender_hash,link_id,order_id,status,lease_token,lease_until,reason) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now()+interval '45 seconds',$12) RETURNING *`,[id,connector.tenant,connector.channel,connector.id,input.externalId,input.payloadHash,input.senderHash??null,binding?.link_id??null,binding?.order_id??null,reason?'REJECTED':'RECEIVING',reason?null:lease,reason])).rows[0];

@@ -37,6 +37,8 @@ Default `TELEGRAM_INTAKE_MODE=allowlist` continues to require `TELEGRAM_ALLOWED_
 
 Keep the sender HMAC secret stable. An open demo is not consent to upload real financial data; its acknowledgement asks for synthetic samples. Real external tests use only explicitly authorised accounts. CPU and fixture modes remain independent of GPU credentials.
 
+Demo reset preserves the current 24-hour Telegram image quota/idempotency ledger as detached `REJECTED / DEMO_RESET_IMAGE` rows: sender HMAC, update identity and timestamps remain, while order, receipt and link references and leases are cleared. Late/replayed uploads cannot recreate deleted evidence or refund quotas. A later reset removes ledger rows older than 24 hours; this is not an automatic retention scheduler. Platform spending controls are still required: these counters cap logical Telegram submissions, not all application traffic or inference dollars.
+
 ## Actual evidence versus pending work
 
 Raw local reports live under `src/evaluation/finalist/` and are ignored by Git. They are not real channel or personnel observations. Team members must collect file-action and timing observations with consent and anonymous IDs. Read `FINALIST_MEASUREMENT.md`; never fill missing measurements with estimates. Formal reports, signatures, sponsor redemption and current billing remain team work.
