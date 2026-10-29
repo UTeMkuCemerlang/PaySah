@@ -63,6 +63,8 @@ src/                         Complete runnable application
   submission/                Technical disclosures and prior validation notes
   .env.example               Configuration template; no live credentials
   package.json               Commands and dependencies
+docs/                        Finalist API, runbook, Orbyte mock and measurement protocol
+runpod/                      RunPod Serverless vLLM endpoint configuration and request example
 submission/
   replit/                    Reviewed Replit screenshots
   runpod/                    Reviewed RunPod screenshots
@@ -118,7 +120,7 @@ For a fresh import, the root .replit configuration installs and builds within sr
 
 The receipt worker sends an image to a RunPod Serverless vLLM endpoint running Qwen/Qwen2.5-VL-7B-Instruct and parses structured receipt fields. Deterministic server rules perform payment verification. RunPod does not approve payments. Failed GPU reading can fall back to Tesseract CPU OCR, with the actual provider and fallback reason recorded.
 
-Set EXTRACTOR_MODE=runpod and configure RUNPOD_API_KEY, RUNPOD_ENDPOINT_ID and RUNPOD_MODEL server-side. Never place credentials in the browser or repository. The application adapter is in src/apps/api/src/modules/receipts/runpod.ts. The separate experimental eval:runpod handler is not the deployed application adapter.
+Set EXTRACTOR_MODE=runpod and configure RUNPOD_API_KEY, RUNPOD_ENDPOINT_ID and RUNPOD_MODEL server-side. Never place credentials in the browser or repository. The application adapter is in src/apps/api/src/modules/receipts/runpod.ts. Endpoint configuration and an example request are in [runpod/](runpod/README.md). The separate experimental eval:runpod handler is not the deployed application adapter.
 
 Reviewed screenshots are in [submission/runpod](submission/runpod/). Their dates and limitations are listed in the submission index. Historical balances are not current quotations.
 
