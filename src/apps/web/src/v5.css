@@ -1,0 +1,116 @@
+/* V5 Aurora glass: moving light behind frosted layers, depth on hover. Visual only; layout and copy come from V4. */
+:root{--glass:rgba(255,255,255,.34);--glass-strong:rgba(255,255,255,.86);--glass-edge:rgba(255,255,255,.75);--depth:0 1px 0 rgba(255,255,255,.9) inset,0 -1px 0 rgba(120,90,190,.12) inset,0 2px 4px rgba(64,38,128,.06),0 14px 34px -8px rgba(64,38,128,.22),0 40px 80px -30px rgba(64,38,128,.28);--ease-spring:cubic-bezier(.2,.9,.25,1.15);--rx:0deg;--ry:0deg;--mx:50%;--my:50%}
+
+/* Aurora: three slow, blurred light sources behind every page. Transform-only so it stays on the compositor. */
+body{background:linear-gradient(135deg,#a79cf0,#9d8eea 55%,#b39ee8);isolation:isolate}
+body:before,body:after{content:"";position:fixed;z-index:-1;pointer-events:none;border-radius:50%;will-change:transform}
+body:before{width:62vmax;height:62vmax;left:-18vmax;top:22vh;background:radial-gradient(circle closest-side,#ff9ed8 0,#f58fd3aa 40%,transparent 100%);animation:aurora-a 26s ease-in-out infinite alternate}
+body:after{width:56vmax;height:56vmax;right:-16vmax;top:-18vmax;background:radial-gradient(circle closest-side,#86ddff 0,#7fb8ffaa 40%,transparent 100%);animation:aurora-b 32s ease-in-out infinite alternate}
+#root{position:relative;isolation:isolate}
+#root:before{content:"";position:fixed;z-index:-1;pointer-events:none;width:44vmax;height:44vmax;left:38vw;bottom:-22vmax;border-radius:50%;background:radial-gradient(circle closest-side,#ffd3a8cc 0,#ffb39a66 45%,transparent 100%);animation:aurora-c 38s ease-in-out infinite alternate;will-change:transform}
+@keyframes aurora-a{to{transform:translate3d(14vw,-10vh,0) scale(1.15)}}
+@keyframes aurora-b{to{transform:translate3d(-12vw,16vh,0) scale(.9)}}
+@keyframes aurora-c{to{transform:translate3d(-20vw,-14vh,0) scale(1.2)}}
+
+/* The shell: thicker frost, light edge and a soft sheen across the top. */
+.app-shell{background:linear-gradient(140deg,rgba(255,255,255,.4),rgba(255,255,255,.1) 55%,rgba(255,255,255,.22));backdrop-filter:blur(28px) saturate(170%);-webkit-backdrop-filter:blur(28px) saturate(170%);border:1px solid var(--glass-edge);box-shadow:0 1px 0 #fff inset,0 0 0 1px rgba(255,255,255,.18),0 30px 80px -10px rgba(58,32,130,.35),0 60px 120px -40px rgba(58,32,130,.4)}
+.app-header{background:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,.08));border-right-color:rgba(255,255,255,.55)}
+
+/* Brand orb: glossy sphere that spins a little on hover. */
+.brand-symbol{background:radial-gradient(circle at 32% 28%,#ffd2c9 0,#ff8e7c 28%,#d83a35 70%,#a3222a 100%);box-shadow:0 0 0 4px rgba(255,255,255,.35),inset -4px -6px 10px rgba(110,10,20,.35),inset 3px 4px 6px rgba(255,255,255,.55),0 8px 18px -4px rgba(184,60,70,.55);transition:transform .6s var(--ease-spring)}
+.brand:hover .brand-symbol{transform:rotateY(180deg) rotateZ(-8deg) scale(1.08)}
+.restoring .brand-symbol{animation:orb-pulse 1.4s ease-in-out infinite}
+@keyframes orb-pulse{50%{transform:scale(1.12);box-shadow:0 0 0 10px rgba(255,255,255,.18),0 8px 30px rgba(184,60,70,.5)}}
+
+/* Navigation: active item floats, others slide on hover. */
+.main-nav a{position:relative;transition:background .25s,transform .35s var(--ease-spring),box-shadow .25s,color .2s}
+.main-nav a:not(.active):hover{transform:translateX(4px);background:rgba(255,255,255,.38)}
+.main-nav a.active{background:linear-gradient(135deg,rgba(255,255,255,.9),rgba(255,255,255,.62));border-color:#fff;box-shadow:0 1px 0 #fff inset,0 10px 22px -8px rgba(80,50,160,.45),0 2px 4px rgba(80,50,160,.1);transform:translateZ(0)}
+.main-nav a.active:before{content:"";position:absolute;left:-1px;top:22%;bottom:22%;width:3px;border-radius:3px;background:linear-gradient(#ff8e7c,#c13c37);box-shadow:0 0 10px #ff8e7c}
+.main-nav a>span{transition:transform .4s var(--ease-spring)}
+.main-nav a:hover>span{transform:scale(1.2) rotate(-8deg)}
+
+/* Surfaces: frosted cards with a light edge and layered shadow. Readable surfaces stay mostly opaque. */
+.panel,.orders-surface,.quick-guide{position:relative;isolation:isolate;background:linear-gradient(160deg,rgba(255,255,255,.93),rgba(255,255,255,.8));backdrop-filter:blur(16px) saturate(150%);-webkit-backdrop-filter:blur(16px) saturate(150%);border:1px solid rgba(255,255,255,.9);box-shadow:var(--depth);transition:box-shadow .35s,transform .45s var(--ease-spring)}
+.login-card{position:relative;isolation:isolate;background:linear-gradient(160deg,rgba(255,255,255,.82),rgba(255,255,255,.6));backdrop-filter:blur(24px) saturate(170%);-webkit-backdrop-filter:blur(24px) saturate(170%);border:1px solid rgba(255,255,255,.9);box-shadow:var(--depth)}
+
+/* Pointer spotlight: a soft highlight follows the cursor across a surface (set by effects.ts). */
+.panel:after,.orders-surface:after,.quick-guide:after,.login-card:after,.next-task:after,.orders-overview>div:not(.overview-label):after{content:"";position:absolute;z-index:-1;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .35s;background:radial-gradient(420px circle at var(--mx) var(--my),rgba(255,255,255,.55),transparent 45%)}
+.orders-overview>div:not(.overview-label):after,.next-task:after{background:radial-gradient(260px circle at var(--mx) var(--my),rgba(255,255,255,.6),transparent 50%)}
+.fx-lit:after{opacity:1}
+.panel.fx-lit,.orders-surface.fx-lit,.quick-guide.fx-lit{box-shadow:0 0 0 1px #fff,0 0 30px -6px rgba(190,160,255,.55),var(--depth)}
+.page-heading h1{background:linear-gradient(100deg,#2a1d4f 20%,#5b2f9e 60%,#2a1d4f 90%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sheen 9s ease-in-out infinite}
+@keyframes sheen{50%{background-position:100% 0}}
+@media(forced-colors:active){.page-heading h1{color:CanvasText;background:none}}
+
+/* 3D tilt: small cards lean toward the pointer. Large reading surfaces only get the spotlight. */
+.orders-overview,.orders-help,.login-form-area,.login-intro{perspective:1100px}
+.orders-overview>div:not(.overview-label),.next-task,.login-card,.quick-guide{position:relative;transform-style:preserve-3d;transition:transform .6s var(--ease-spring),box-shadow .4s}
+.fx-tilt{transform:rotateX(var(--rx)) rotateY(var(--ry)) translateZ(0);transition:transform .12s ease-out,box-shadow .4s}
+.orders-overview>div.fx-tilt:not(.overview-label),.next-task.fx-tilt{box-shadow:inset 3px 5px 9px rgba(81,68,163,.2),0 24px 40px -14px rgba(60,40,140,.45)}
+.orders-overview strong,.next-task .task-order strong{display:inline-block;transition:transform .5s var(--ease-spring);text-shadow:0 1px 0 rgba(255,255,255,.6),0 6px 14px rgba(43,40,86,.18)}
+.fx-tilt strong{transform:translateZ(36px) scale(1.04)}
+
+/* Overview tiles: glossy depth instead of inset only. */
+.orders-overview>div:not(.overview-label){position:relative;isolation:isolate;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 3px 5px 9px rgba(81,68,163,.18),0 14px 28px -12px rgba(60,40,140,.38)}
+.orders-overview>div:not(.overview-label):before{content:"";position:absolute;z-index:-1;inset:0 0 55% 0;border-radius:inherit;background:linear-gradient(180deg,rgba(255,255,255,.45),transparent);pointer-events:none}
+.next-task{position:relative;isolation:isolate;overflow:hidden;background:linear-gradient(140deg,rgba(236,228,255,.95),rgba(205,195,243,.92));backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+
+/* Buttons: lift, glow and a light sweep on the primary action. Press sinks. */
+.button{position:relative;overflow:hidden;transition:transform .3s var(--ease-spring),box-shadow .3s,background .2s,border-color .2s}
+.button:hover:not(:disabled){transform:translateY(-2px)}
+.button:active:not(:disabled){transform:translateY(1px) scale(.97);transition-duration:.08s}
+.button.primary,.login-card .button.primary,.task-action{box-shadow:0 0 0 4px rgba(255,255,255,.35),inset 0 1px 0 rgba(255,255,255,.35),0 10px 22px -6px rgba(170,50,48,.55)}
+.button.primary:hover:not(:disabled),.task-action:hover{background:linear-gradient(145deg,#cc4a41,#a82d2a);box-shadow:0 0 0 5px rgba(255,255,255,.45),inset 0 1px 0 rgba(255,255,255,.4),0 16px 30px -8px rgba(170,50,48,.65)}
+.button.primary:not(:disabled):before,.task-action:before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.4) 50%,transparent 65%) no-repeat;background-size:250% 100%;background-position:130% 0;transition:background-position .7s ease;pointer-events:none}
+.button.primary:hover:not(:disabled):before,.task-action:hover:before{background-position:-30% 0}
+.button.ghost:hover:not(:disabled),.button.secondary:hover:not(:disabled){background:#fff;box-shadow:inset 0 1px 0 #fff,0 10px 20px -8px rgba(92,60,141,.35)}
+
+/* Tabs and table rows respond like physical chips. */
+.status-tabs button{transition:transform .3s var(--ease-spring),background .2s,box-shadow .25s}
+.status-tabs button:hover{transform:translateY(-2px)}
+.status-tabs button.selected{box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 8px 16px -8px rgba(91,60,131,.55)}
+.table-scroll tbody tr{transition:background .2s}
+.table-scroll tbody td{transition:background .25s,box-shadow .25s}
+.table-scroll tbody tr:hover td{background:linear-gradient(90deg,rgba(244,236,255,.95),rgba(255,255,255,.7))}
+.table-scroll tbody tr:hover td:first-child{box-shadow:inset 3px 0 0 #c13c37}
+.orders-surface .text-link{transition:transform .3s var(--ease-spring),box-shadow .25s,border-color .2s}
+.orders-surface .text-link:hover{transform:translateY(-2px);border-color:#c7b4e6;box-shadow:0 8px 16px -8px rgba(92,60,141,.45)}
+
+/* Inputs glow when focused; the focus outline from V4 stays. */
+input,select,textarea{transition:box-shadow .25s,border-color .2s,background .2s}
+input:hover:not(:disabled),select:hover:not(:disabled),textarea:hover:not(:disabled){border-color:#8f7cb0}
+input:focus,select:focus,textarea:focus{box-shadow:0 0 0 5px rgba(170,140,240,.28),0 6px 16px -8px rgba(92,60,141,.4)}
+
+/* Receipt image sits on a lifted sheet. */
+.receipt-preview img{transition:transform .5s var(--ease-spring),box-shadow .4s}
+.receipt-preview:hover img{transform:translateY(-4px) rotate(-.6deg);box-shadow:0 26px 40px -14px rgba(89,69,114,.5)}
+
+/* Entrance: content rises into place with a short stagger. Final state is plain (no transform left behind). */
+.workspace-content>*>*,.login-intro>*,.login-card{animation:rise .6s var(--ease-spring) backwards}
+.workspace-content>*>:nth-child(2),.login-intro>:nth-child(2){animation-delay:.06s}
+.workspace-content>*>:nth-child(3),.login-intro>:nth-child(3){animation-delay:.12s}
+.workspace-content>*>:nth-child(4),.login-intro>:nth-child(4){animation-delay:.18s}
+.workspace-content>*>:nth-child(n+5),.login-intro>:nth-child(n+5),.login-card{animation-delay:.24s}
+@keyframes rise{from{opacity:0;transform:translate3d(0,18px,0) scale(.985)}to{opacity:1;transform:none}}
+.orders-overview>div:not(.overview-label){animation:pop .7s var(--ease-spring) backwards}
+.orders-overview>div:nth-child(3){animation-delay:.08s}.orders-overview>div:nth-child(4){animation-delay:.16s}
+@keyframes pop{from{opacity:0;transform:perspective(800px) rotateX(24deg) translateY(16px)}to{opacity:1;transform:none}}
+
+/* Login receipt: floats in 3D and leans with the pointer. */
+.login-paper{background:linear-gradient(165deg,#fff,#fbf5ff);box-shadow:12px 18px 0 rgba(217,197,245,.85),20px 34px 50px -6px rgba(96,68,141,.38);animation:float-paper 7s ease-in-out infinite;transform-style:preserve-3d}
+.login-paper strong{transform:translateZ(30px)}
+@keyframes float-paper{0%,100%{transform:rotate(-5deg) rotateX(calc(6deg + var(--rx))) rotateY(calc(-10deg + var(--ry))) translateY(0)}50%{transform:rotate(-3deg) rotateX(calc(-2deg + var(--rx))) rotateY(calc(6deg + var(--ry))) translateY(-12px)}}
+
+/* Notices and timeline: a little light. */
+.notice{box-shadow:0 8px 18px -12px rgba(102,80,26,.4)}
+.timeline-dot{box-shadow:0 0 0 4px rgba(165,139,197,.25)}
+.timeline .event-new .timeline-dot{animation:ping 1.6s ease-out 2}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(165,139,197,.7)}100%{box-shadow:0 0 0 12px rgba(165,139,197,0)}}
+
+/* Fallbacks: without blur, or when motion is reduced, keep the V4 look. */
+@supports not (backdrop-filter:blur(1px)){.panel,.orders-surface,.quick-guide,.login-card{background:#f9f6ff}}
+html[data-no-blur] .panel,html[data-no-blur] .orders-surface,html[data-no-blur] .quick-guide,html[data-no-blur] .login-card,html[data-no-blur] .next-task{backdrop-filter:none;-webkit-backdrop-filter:none;background:#faf7ff}
+html[data-no-blur] body:before,html[data-no-blur] body:after,html[data-no-blur] #root:before{display:none}
+@media(prefers-reduced-motion:reduce){.fx-tilt{transform:none}.login-paper{transform:rotate(-5deg)}.workspace-content>*>*,.login-intro>*,.login-card,.orders-overview>div:not(.overview-label){opacity:1}}
+@media(max-width:740px){.main-nav a:not(.active):hover{transform:none}}

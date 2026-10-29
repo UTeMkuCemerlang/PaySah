@@ -8,6 +8,7 @@ import {text} from './copy.js';
 import type {Actor,Session,Health} from './types.js';
 import './style.css';
 import './v4.css';
+import './v5.css';
 
 const Story=lazy(()=>import('./story/StoryPage.js'));
 
