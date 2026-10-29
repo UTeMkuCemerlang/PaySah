@@ -9,6 +9,7 @@ import type {Actor,Session,Health} from './types.js';
 import './style.css';
 import './v4.css';
 import './v5.css';
+import './v6.css';
 import './effects.js';
 
 const Story=lazy(()=>import('./story/StoryPage.js'));

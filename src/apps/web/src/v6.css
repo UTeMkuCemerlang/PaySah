@@ -1,0 +1,136 @@
+/* V6 Iris: white workspace on a pale canvas, an iridescent hero band with floating 3D glass, blue actions.
+   Visual only; it overrides V4/V5 values and keeps their structure, fallbacks and focus handling. */
+:root{--ink:#1d2140;--muted:#5b6080;--line:#e7e9f3;--accent:#4f5bed;--accent-ink:#3a44d4;--surface:#fff;--px:0;--py:0;color:var(--ink);background:#eef0fb}
+body{background:radial-gradient(ellipse at 15% 0,#f4ecff,transparent 50%),radial-gradient(ellipse at 90% 100%,#e6ecff,transparent 55%),#eef0fb}
+body:before,body:after,#root:before{display:none}
+::selection{background:#d9ddff;color:#1d2140}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline-color:var(--accent-ink)}
+
+/* Shell: a clean white sheet with a soft lift. */
+.app-shell{background:#fff;backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid #fff;border-radius:28px;box-shadow:0 1px 2px rgba(29,33,64,.04),0 30px 80px -24px rgba(62,72,170,.28)}
+.app-header{background:#fff;border-right:1px solid #eef0f6;border-radius:28px 0 0 28px}
+.brand{color:#1d2140}
+.brand-symbol{border-radius:12px;border:0;background:linear-gradient(150deg,#3a3f63,#1d2140);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 8px 16px -6px rgba(29,33,64,.5);font-size:22px}
+.brand:hover .brand-symbol{transform:rotateY(180deg) scale(1.06)}
+.main-nav a{color:#5b6080;border:0}
+.main-nav a:not(.active):hover{background:#f4f5fb;color:#1d2140}
+.main-nav a.active{background:#eef0ff;color:var(--accent-ink);box-shadow:none}
+.main-nav a.active:before{background:var(--accent);box-shadow:0 0 10px rgba(79,91,237,.6)}
+.story-entry{color:#5b6080;border-color:#eef0f6}
+.account-menu{background:#f7f8fc;box-shadow:none;border:1px solid #eef0f6}
+
+/* Hero band: iridescent gradient behind the page title (and the overview on Orders), with 3D glass objects. */
+.workspace{position:relative;isolation:isolate;overflow-x:clip;--hero-h:236px}
+.workspace:has(.orders-overview){--hero-h:400px}
+.workspace:has(.detail-heading){--hero-h:300px}
+.workspace:before{content:"";position:absolute;z-index:-2;left:0;right:0;top:0;height:var(--hero-h);border-radius:0 28px 0 0;pointer-events:none;
+ background:radial-gradient(ellipse at 70% 30%,rgba(255,255,255,.55),transparent 45%),linear-gradient(115deg,#c3c9fb 0%,#d4cdf8 38%,#e8d2f3 64%,#d2d9fb 100%);
+ box-shadow:inset 0 -1px 0 rgba(255,255,255,.7)}
+/* Glass torus: a conic ring masked to a band and laid back in 3D; it spins slowly and leans with the pointer. */
+.workspace:after{content:"";position:absolute;z-index:-1;top:6px;right:7%;width:260px;height:260px;border-radius:50%;pointer-events:none;
+ background:conic-gradient(from 20deg,#9fb1ff,#f2c4ff,#ffffff,#b59cff,#8fd6ff,#ffd1f1,#9fb1ff);
+ -webkit-mask:radial-gradient(farthest-side,transparent 54%,#000 57%,#000 97%,transparent 100%);mask:radial-gradient(farthest-side,transparent 54%,#000 57%,#000 97%,transparent 100%);
+ filter:drop-shadow(0 18px 24px rgba(90,80,200,.35)) saturate(115%);opacity:.92;
+ transform:perspective(900px) rotateX(calc(58deg + var(--py)*10deg)) rotateY(calc(var(--px)*14deg)) rotateZ(0);animation:torus 18s linear infinite}
+@keyframes torus{to{transform:perspective(900px) rotateX(calc(58deg + var(--py)*10deg)) rotateY(calc(var(--px)*14deg)) rotateZ(360deg)}}
+/* Floating glass card, like a receipt held up to the light. */
+.workspace-content{position:relative;z-index:1}
+.workspace-meta{position:relative;z-index:1}
+.workspace-content:before{content:"";position:absolute;z-index:-1;top:-18px;right:calc(7% + 150px);width:200px;height:124px;border-radius:16px;pointer-events:none;
+ background:linear-gradient(90deg,transparent 14px,rgba(255,255,255,.9) 14px,rgba(255,255,255,.9) 44px,transparent 44px) 0 26px/100% 22px no-repeat,
+  linear-gradient(90deg,transparent 14px,rgba(255,255,255,.75) 14px,rgba(255,255,255,.75) 120px,transparent 120px) 0 88px/100% 6px no-repeat,
+  linear-gradient(90deg,transparent 14px,rgba(255,255,255,.6) 14px,rgba(255,255,255,.6) 90px,transparent 90px) 0 100px/100% 6px no-repeat,
+  linear-gradient(135deg,rgba(255,255,255,.75),rgba(196,182,255,.45) 55%,rgba(160,200,255,.4));
+ border:1px solid rgba(255,255,255,.9);box-shadow:inset 0 1px 0 #fff,0 24px 40px -16px rgba(70,60,170,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+ transform:perspective(800px) rotateX(calc(22deg + var(--py)*-8deg)) rotateY(calc(-26deg + var(--px)*12deg)) rotateZ(-14deg);animation:glass-float 7s ease-in-out infinite}
+@keyframes glass-float{50%{translate:0 -12px;rotate:0 0 1 -3deg}}
+
+/* Header copy on the hero. */
+.workspace-meta,.mode-label,.workspace-region{color:#3b4068}
+.demo-pill{background:rgba(255,255,255,.75);border-color:#fff;color:#3b4068}
+.page-heading h1{background:linear-gradient(100deg,#1d2140 25%,#3a44d4 60%,#1d2140 90%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text}
+.page-heading .muted,.overview-label p,.back-link,.detail-heading .muted{color:#3b4068}
+.overview-label>span{color:#1d2140}
+
+/* Overview tiles: frosted glass over the hero, like the balance chips in the reference. */
+.orders-overview>div:not(.overview-label){border:1px solid rgba(255,255,255,.85);border-radius:18px;background:rgba(255,255,255,.5);background-image:none;backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 12px 28px -14px rgba(60,60,160,.4)}
+.orders-overview>div:nth-child(3),.orders-overview>div:nth-child(4){background-image:none}
+.orders-overview>div:not(.overview-label):before{inset:14px auto auto 24px;width:26px;height:4px;border-radius:4px;background:#5b8cff}
+.orders-overview>div:nth-child(3):before{background:#c06be8}.orders-overview>div:nth-child(4):before{background:#2fb487}
+.orders-overview strong{color:#1d2140;font-size:34px}
+.orders-overview span{color:#3b4068}
+.orders-overview>div.fx-tilt:not(.overview-label){box-shadow:inset 0 1px 0 #fff,0 26px 40px -16px rgba(60,60,160,.5)}
+
+/* Surfaces: white cards with hairline borders. */
+.panel,.orders-surface,.quick-guide{background:#fff;backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid #eceef6;border-radius:20px;box-shadow:0 1px 2px rgba(29,33,64,.04),0 10px 30px -16px rgba(50,60,140,.22)}
+.panel.fx-lit,.orders-surface.fx-lit,.quick-guide.fx-lit{box-shadow:0 0 0 1px #dfe3ff,0 18px 40px -18px rgba(70,80,220,.35)}
+.panel:after,.orders-surface:after,.quick-guide:after,.login-card:after{background:radial-gradient(380px circle at var(--mx) var(--my),rgba(110,125,255,.07),transparent 50%)}
+.panel h2,.quick-guide h2{color:#1d2140}
+.quick-guide p{color:#5b6080}
+.quick-guide li>span{color:var(--accent-ink);border-color:#d6dbff;background:#f1f3ff}
+.next-task{background:linear-gradient(160deg,#fff,#f4f5ff);border:1px solid #e4e7fb;color:#1d2140;box-shadow:0 1px 2px rgba(29,33,64,.04),0 14px 34px -16px rgba(70,80,220,.35);backdrop-filter:none;-webkit-backdrop-filter:none}
+.next-task:after{background:radial-gradient(240px circle at var(--mx) var(--my),rgba(110,125,255,.12),transparent 55%)}
+.task-kicker,.next-task>p,.task-order span{color:#5b6080}
+.task-order strong{color:#1d2140}
+
+/* Actions: blue primary, quiet secondary. */
+.button.primary,.login-card .button.primary,.task-action{background:linear-gradient(150deg,#5d6bff,#4651e4);border-color:#4651e4;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 10px 20px -8px rgba(70,80,230,.6)}
+.button.primary:hover:not(:disabled),.task-action:hover{background:linear-gradient(150deg,#5260ff,#3a44d4);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 16px 28px -10px rgba(70,80,230,.7)}
+.button.primary:disabled,.login-card .button.primary:disabled,.task-action:disabled{background:#eceef6;color:#5e6383;border-color:#dcdfeb;box-shadow:none}
+.button.ghost,.button.secondary{background:#fff;border-color:#e0e3f0;color:#2f3570;box-shadow:0 1px 2px rgba(29,33,64,.05)}
+.button.ghost:hover:not(:disabled),.button.secondary:hover:not(:disabled){border-color:#c8cdf8;color:var(--accent-ink);box-shadow:0 10px 20px -10px rgba(70,80,230,.4)}
+.button:disabled{background:#eceef6;color:#5e6383}
+
+/* Tabs, table, inputs. */
+.status-tabs button{background:#fff;border-color:#e0e3f0;color:#3b4068}
+.status-tabs button span{background:#f1f2f8;color:#3b4068}
+.status-tabs button.selected{background:#eef0ff;border-color:#c5cbfb;color:var(--accent-ink);box-shadow:0 6px 14px -8px rgba(70,80,230,.5)}
+.status-tabs button.selected span{background:var(--accent);color:#fff}
+.table-scroll th{background:#f7f8fc;color:#5e6383;border-color:#eceef6}
+.table-scroll td{border-color:#f0f1f7}
+.table-scroll tbody tr:hover td{background:#f6f7ff}
+.table-scroll tbody tr:hover td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.orders-surface .text-link{border-color:#e0e3f0;color:#2f3570}
+.orders-surface .text-link:hover{border-color:#c5cbfb;color:var(--accent-ink);box-shadow:0 8px 16px -8px rgba(70,80,230,.45)}
+input,select,textarea{background:#fff;border-color:#d9dcea;color:#1d2140}
+input:hover:not(:disabled),select:hover:not(:disabled),textarea:hover:not(:disabled){border-color:#a9b0e8}
+input:focus,select:focus,textarea:focus{border-color:#7c86f5;box-shadow:0 0 0 4px rgba(79,91,237,.15)}
+.field-help,.field-list dt,.source-tag,.timeline p,.timeline a{color:#5b6080}
+.field-list dd,.evidence-summary strong{color:#1d2140}
+.receipt-preview{background:linear-gradient(135deg,#e4e6ff,#efe3fb);border-color:#e3e1f7;box-shadow:inset 0 6px 14px rgba(70,80,180,.1)}
+.evidence-summary{border-color:#eceef6;box-shadow:0 10px 30px -16px rgba(50,60,140,.22)}
+.decision-panel{border-color:#d9dcf6;background:#fcfcff}
+.reply-panel textarea{background:#f7f8fc;color:#2f3570}
+.timeline li:before{background:#e0e3f0}
+.timeline-dot{background:var(--accent);box-shadow:0 0 0 4px rgba(79,91,237,.18)}
+.timeline blockquote{background:#f4f5ff;color:#3b4068;border-color:#c5cbfb}
+.timeline .event-new{background:rgba(219,224,255,.7)}
+.workspace-footer{color:#5b6080}
+
+/* Login: the same iridescent band and glass, a white sign-in card. */
+.login-layout{position:relative;isolation:isolate}
+.login-intro{position:relative}
+.login-intro:before{content:"";position:absolute;z-index:-1;top:-120px;left:-60px;right:-40px;bottom:-60px;border-radius:40px;pointer-events:none;
+ background:radial-gradient(ellipse at 70% 30%,rgba(255,255,255,.55),transparent 45%),linear-gradient(115deg,#c3c9fb,#d4cdf8 38%,#e8d2f3 64%,#d2d9fb);opacity:.85;
+ -webkit-mask:radial-gradient(ellipse at 50% 50%,#000 45%,transparent 75%);mask:radial-gradient(ellipse at 50% 50%,#000 45%,transparent 75%)}
+.login-intro:after{content:"";position:absolute;z-index:-1;bottom:20px;left:250px;width:240px;height:240px;border-radius:50%;pointer-events:none;
+ background:conic-gradient(from 20deg,#9fb1ff,#f2c4ff,#ffffff,#b59cff,#8fd6ff,#ffd1f1,#9fb1ff);
+ -webkit-mask:radial-gradient(farthest-side,transparent 54%,#000 57%,#000 97%,transparent 100%);mask:radial-gradient(farthest-side,transparent 54%,#000 57%,#000 97%,transparent 100%);
+ filter:drop-shadow(0 18px 24px rgba(90,80,200,.35));transform:perspective(900px) rotateX(calc(58deg + var(--py)*10deg)) rotateY(calc(var(--px)*14deg));animation:torus 18s linear infinite}
+.login-intro h2{color:#1d2140}.login-intro>p,.login-intro>.eyebrow{color:#3b4068}
+.login-card{background:#fff;backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid #eceef6;box-shadow:0 1px 2px rgba(29,33,64,.04),0 30px 70px -26px rgba(62,72,170,.35)}
+.login-paper{background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(222,214,255,.7));border:1px solid #fff;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:12px 18px 0 rgba(196,203,251,.6),20px 34px 50px -6px rgba(70,60,170,.35);color:#2f3570}
+.login-paper i{background:#d8dcf7}
+.login-role-note{border-color:#eceef6}
+.login-card>.demo-pill{background:#eef0ff;border-color:#dfe3ff;color:var(--accent-ink)}
+.login-story-link{color:var(--accent-ink)}
+
+/* Fallbacks and small screens. */
+html[data-no-blur] .orders-overview>div:not(.overview-label){backdrop-filter:none;-webkit-backdrop-filter:none;background:#f6f6ff}
+html[data-no-blur] .workspace-content:before{backdrop-filter:none;-webkit-backdrop-filter:none}
+@supports not (backdrop-filter:blur(1px)){.orders-overview>div:not(.overview-label){background:#f6f6ff}.app-shell{background:#fff}.panel,.orders-surface,.quick-guide,.login-card{background:#fff}.next-task{background:#f4f5ff}.app-header{background:#fff}}
+@media(prefers-reduced-motion:reduce){.workspace:after,.login-intro:after{transform:perspective(900px) rotateX(58deg)}.workspace-content:before{transform:perspective(800px) rotateX(22deg) rotateY(-26deg) rotateZ(-14deg)}}
+@media(max-width:1250px){.workspace-content:before{right:calc(4% + 130px)}}
+@media(max-width:1000px){.workspace:after{width:200px;height:200px;right:2%}.workspace-content:before{width:150px;height:94px;right:150px}}
+@media(max-width:740px){.app-header{border-radius:28px 28px 0 0;border-right:0;border-bottom:1px solid #eef0f6}.workspace{--hero-h:210px}.workspace:has(.orders-overview){--hero-h:560px}.workspace:has(.detail-heading){--hero-h:330px}.workspace:before{border-radius:0}.workspace:after{width:150px;height:150px;top:-20px;right:-30px;opacity:.75}.workspace-content:before{display:none}.login-intro:after{width:160px;height:160px;left:auto;right:0}}

@@ -26,6 +26,8 @@ function update(){
     active.style.setProperty('--mx',`${(x*100).toFixed(1)}%`);active.style.setProperty('--my',`${(y*100).toFixed(1)}%`);active.classList.add('fx-lit');
     if(active.matches(tilted)){const d=maxDeg(active);active.style.setProperty('--rx',`${((.5-y)*d).toFixed(2)}deg`);active.style.setProperty('--ry',`${((x-.5)*d).toFixed(2)}deg`);active.classList.add('fx-tilt');}
   }
+  // Hero glass drifts with the pointer across the whole window, like a parallax layer.
+  const root=document.documentElement.style;root.setProperty('--px',(e.clientX/innerWidth-.5).toFixed(3));root.setProperty('--py',(e.clientY/innerHeight-.5).toFixed(3));
   // The login receipt follows the pointer across the whole window, like a parallax layer.
   if(!paper?.isConnected)paper=document.querySelector<HTMLElement>('.login-paper');
   if(paper){paper.style.setProperty('--rx',`${((.5-e.clientY/innerHeight)*10).toFixed(2)}deg`);paper.style.setProperty('--ry',`${((e.clientX/innerWidth-.5)*14).toFixed(2)}deg`);}
