@@ -48,6 +48,8 @@ export async function resetDemoTenant(pool: pg.Pool, tenantId: string, root = pr
     await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`m2:${tenantId}`]);
     const tenant = await client.query('SELECT 1 FROM tenants WHERE id=$1 AND is_demo FOR UPDATE', [tenantId]);
     if (!tenant.rowCount) throw new Error('Only synthetic demo tenants can be reset');
+    // The opt-in Bakery RM300 demo order survives a reset only where it was deliberately installed.
+    const bakeryDemo = tenantId==='10000000-0000-4000-8000-000000000001' && !!(await client.query("SELECT 1 FROM orders WHERE tenant_id=$1 AND external_id='FINAL-BAKERY-300'",[tenantId])).rowCount;
     await client.query('UPDATE orders SET current_receipt_id=NULL WHERE tenant_id=$1', [tenantId]);
     await client.query('UPDATE receipts SET intake_message_id=NULL WHERE tenant_id=$1', [tenantId]);
     // A public demo reset must not refund receipt-processing quotas. Keep only
@@ -63,6 +65,7 @@ export async function resetDemoTenant(pool: pg.Pool, tenantId: string, root = pr
       await client.query(await readFile(join(root, 'db/seeds', name), 'utf8'));
     }
     if(tenantId==='10000000-0000-4000-8000-000000000003')await client.query(await readFile(join(root,'fixtures/finalist/laundry.sql'),'utf8'));
+    if(bakeryDemo)await client.query(await readFile(join(root,'fixtures/finalist/bakery.sql'),'utf8'));
     const orders = (await client.query('SELECT count(*)::int AS n FROM orders WHERE tenant_id=$1', [tenantId])).rows[0].n as number;
     await client.query('COMMIT');
     return { orders };

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import type {Server} from 'node:http';
 import pg from 'pg';
+import {readFile} from 'node:fs/promises';
 import {migrate,seed} from '../../scripts/database.js';
 import {createApp} from '../../apps/api/src/app.js';
 import {readConfig} from '../../apps/api/src/config.js';
@@ -36,5 +37,12 @@ test('Owner demo reset returns only the own synthetic shop to the seeded startin
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM activity_events WHERE tenant_id=$1',[tenantB])).rows[0].n,activityB);
   // Sessions survive, and the shop works again immediately.
   assert.equal((await post(`/orders/${(await order('DEMO-A-128')).id}/receipts`,{source:'FIXTURE',fixture_id:'normal',expected_version:1},cashier)).status,201);
+  // The opt-in Bakery RM300 order returns clean after a reset once installed, and only then.
+  await pool.query(await readFile('fixtures/finalist/bakery.sql','utf8'));
+  assert.equal((await post(`/orders/${(await order('FINAL-BAKERY-300')).id}/receipts`,{source:'FIXTURE',fixture_id:'bakery_300',expected_version:1},cashier)).status,201);
+  const again=await post('/demo/reset',{},owner);assert.equal(again.status,200);assert.deepEqual(await again.json(),{orders:6});
+  const bakery=await order('FINAL-BAKERY-300');assert.equal(bakery.payment_state,'UNPAID');assert.equal(bakery.version,1);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM receipts WHERE tenant_id=$1',[tenantA])).rows[0].n,0);
+  assert.equal((await pool.query("SELECT count(*)::int AS n FROM bank_transactions WHERE tenant_id=$1 AND provider_tx_id='FINAL-BAKERY-300'",[tenantA])).rows[0].n,1);
  }finally{server?.closeAllConnections();if(server)await new Promise<void>(r=>server!.close(()=>r()));await pool.end();await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);await admin.end();}
 });

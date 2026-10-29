@@ -19,7 +19,7 @@ npm run smoke:finalist
 npm run smoke:deployment
 ```
 
-Optional Laundry C data is in `fixtures/finalist/laundry.sql`. It is applied by isolated finalist tests, not the default application seed. It has distinct identities, account, RM300 order and credit. Any installation in a shared or production database needs a separately reviewed target and explicit data-write authorization. Synthetic PNGs are `bakery_300.png` and `laundry_300.png`; the Bakery fixture needs its own matching synthetic credit as demonstrated in the integration test. Never reuse a receipt across shops to demonstrate policy differences.
+Optional Laundry C data is in `fixtures/finalist/laundry.sql`. It is applied by isolated finalist tests, not the default application seed. It has distinct identities, account, RM300 order and credit. Any installation in a shared or production database needs a separately reviewed target and explicit data-write authorization. Synthetic PNGs are `bakery_300.png` and `laundry_300.png`. The matching Bakery order `FINAL-BAKERY-300` and its own synthetic credit are in the opt-in `fixtures/finalist/bakery.sql`; once installed, an Owner demo reset of Kedai A restores it clean, and a shop where it was never installed keeps its original five orders. Never reuse a receipt across shops to demonstrate policy differences.
 
 ## Migration and production release
 
