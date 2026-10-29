@@ -18,7 +18,7 @@ async function collect(directory:string){
     else if(item.isFile())sources[file.replaceAll('\\','/')]=sha(await readFile(file));
   }
 }
-for(const directory of ['apps','packages','db','scripts','tests','fixtures/receipts','integrations'])await collect(directory);
+for(const directory of ['apps','packages','db','scripts','tests','fixtures','integrations'])await collect(directory);
 for(const file of ['package.json','package-lock.json','tsconfig.json','.env.example','.replit'])sources[file]=sha(await readFile(file));
 await writeFile(join(dir,'source-sha256.json'),JSON.stringify(sources,null,2)+'\n');
 async function run(name:string,args:string[]){

@@ -11,3 +11,5 @@ Receipts, customers, accounts and bank credits in the included fixtures are synt
 This declaration preserves truthful competition disclosure; it is not an official completed submission form. Transfer verified details into the organizer's required template before submission.
 
 V4 uses the existing system font stack. The story page lazy-loads Three.js 0.186.1; its MIT license is retained in apps/web/THIRD_PARTY_NOTICES.md. User-supplied visual references informed the implementation, but their HTML runtimes, embedded fonts and original attachments are not included. Browser WebGL is a local presentation feature, not a paid inference request.
+
+The 2026-10-29 finalist implementation session used OpenAI Codex with GPT-6.1 Sol for code, integration tests and documentation. Its automated tests used isolated local PostgreSQL schemas and synthetic data; Telegram requests/replies were mocked and no paid inference calls were made by that session. Recommendations for other models are separate from actual recorded use. New sponsor credits have not been verified as redeemed by this code session.

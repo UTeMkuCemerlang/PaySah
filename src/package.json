@@ -9,7 +9,9 @@
   "scripts": {
     "demo:gate": "tsx scripts/demo-gate.ts",
     "mock:orbyte": "tsx scripts/mock-orbyte.ts",
+    "eval:e2e": "tsx scripts/evaluate-finalist.ts",
     "smoke:finalist": "tsx scripts/smoke-finalist.ts",
+    "score:finalist": "tsx scripts/score-finalist-study.ts",
     "fixtures:images": "tsx scripts/generate-receipts.ts",
     "eval:ocr": "tsx scripts/evaluate-ocr.ts",
     "fixtures:ocr-expanded": "tsx scripts/generate-ocr-dataset.ts",

@@ -8,7 +8,7 @@ Receipt verification for Malaysian small businesses: compare receipt details wit
 | --- | --- |
 | Team name | UTeMkuCemerlang |
 | Team domain | Domain 2 — Orbyte Smart SME Challenge |
-| SDG alignment | SDG 8.3 — support micro and small enterprises |
+| SDG alignment | Primary SDG 8.2 — productivity through technology; supporting SDG 8.3 — support micro and small enterprises |
 | Team Leader | Chong Kai Li |
 | University | Universiti Teknikal Malaysia Melaka (UTeM) |
 | Number of Members | 4 |
@@ -27,7 +27,7 @@ Receipt verification for Malaysian small businesses: compare receipt details wit
 
 Small merchants receive transfer screenshots but still need to establish whether money arrived. PaySah extracts receipt fields, checks explainable rules against independent bank records, and keeps human payment and release decisions separate. Cashier and Owner permissions, duplicate evidence detection and activity records support review.
 
-The public prototype uses synthetic customers, receipts and bank credits. It does not connect to a real bank or move money. Screenshots alone never establish payment. Partial or invalid evidence stays blocked; clean payments above RM500 require Owner approval.
+The public prototype uses synthetic customers, receipts and bank credits. It does not connect to a real bank or move money. Screenshots alone never establish payment. Partial or invalid evidence stays blocked; payments above each shop's review threshold require Owner approval. Existing shops retain RM500; the optional Laundry demonstration uses RM200.
 
 ### Key features
 
@@ -147,3 +147,25 @@ The PaySah pitching video has been completed and is available through the link p
 The prototype demonstrates AI-assisted receipt extraction, rule-based payment verification, role-based approval, and receipt intake through Telegram and Google Forms. The demonstration uses synthetic receipts and bank records; it does not connect to a live bank or payment gateway.
 
 Licensed under [Apache-2.0](LICENSE). Third-party packages retain their respective licenses. See the [technical tools declaration](submission/SDC2026_UTeMkuCemerlang_TechDeclaration_final.pdf) and supporting [source disclosure](src/submission/TOOLS_DECLARATION.md).
+
+## Finalist implementation
+
+The finalist source adds versioned shop policies, an optional Laundry SME fixture, denied-action auditing, order-filtered incremental activity, five-second workspace refresh and draft protection, a proposed Orbyte mock, explicit bounded Telegram demo-link intake and build commit metadata. These source changes are separate from the existing live deployment; production migration and release still need verification. The PDFs linked above describe Phase 1 and are not rewritten Finalist reports.
+
+- [API contract](docs/FINALIST_API.md)
+- [Safe migration and deployment runbook](docs/FINALIST_RUNBOOK.md)
+- [Proposed Orbyte mock](docs/ORBYTE_INTEGRATION.md)
+- [Measurement protocol and unfilled observation format](docs/FINALIST_MEASUREMENT.md)
+
+To verify the approval gate yourself, set a dedicated local test database and run from `src/`:
+
+```powershell
+$env:TEST_DATABASE_URL='postgresql://paysah:paysah_local_only@127.0.0.1:55432/paysah_test'
+npm run demo:gate
+```
+
+The script makes direct HTTP requests and reports the precise denied responses, then confirms payment through Owner approval and releases separately. It creates and removes a random schema and uses newly created synthetic orders. It cannot target the live deployment. Never replace the test URL with production credentials. The sample password belongs only to the local development database.
+
+`npm run mock:orbyte` and `npm run eval:e2e` run local fixture workflows. `npm run smoke:finalist` exercises two browser windows, draft retention and mobile Laundry layout after a build. Human timing, observed employee file actions, new GPU accuracy and current platform costs are not supplied by these scripts. Report their actual measurements separately; do not claim the 30% processing-time target has been achieved without observations.
+
+Telegram remains allowlisted by default. Public demo access requires an explicit `TELEGRAM_INTAKE_MODE=demo_link` rollout, demo tenant, valid order token, quotas and authorisation of real channel tests. The initial live deployment's historical allowlist description above is not proof that this new mode is live. Judges should use a new synthetic order rather than protected recording orders.
