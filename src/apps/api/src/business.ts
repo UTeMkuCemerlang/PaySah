@@ -41,7 +41,7 @@ export function businessRouter(pool: pg.Pool,config:Config,storage:ReceiptStorag
     bucket.count++; attempts.set(ip,bucket);
     const { account_id } = demoLoginSchema.parse(req.body);
     const result = await pool.query('SELECT u.id, u.tenant_id, u.role, u.display_name FROM users u JOIN tenants t ON t.id=u.tenant_id WHERE u.id=$1 AND u.active AND u.role IN ($role$OWNER$role$,$role$CASHIER$role$) AND t.is_demo', [account_id]);
-    if (!result.rowCount) throw new ApiError(404, 'NOT_FOUND', '演示账号不存在');
+    if (!result.rowCount) throw new ApiError(404, 'NOT_FOUND', 'Demo account not found');
     const actor: Actor = result.rows[0];
     if (now >= cleanupAfter) {
       cleanupAfter = now + 60000;
@@ -54,9 +54,9 @@ export function businessRouter(pool: pg.Pool,config:Config,storage:ReceiptStorag
   });
   router.use(async (req, res, next) => {
     const token = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(req.get('Authorization') ?? '')?.[1];
-    if (!token) throw new ApiError(401, 'UNAUTHENTICATED', '请先选择演示账号');
+    if (!token) throw new ApiError(401, 'UNAUTHENTICATED', 'Choose a demo account first');
     const result = await pool.query('SELECT u.id,u.tenant_id,u.role,u.display_name FROM demo_sessions s JOIN users u ON u.id=s.user_id AND u.tenant_id=s.tenant_id JOIN tenants t ON t.id=u.tenant_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.active AND u.role IN ($role$OWNER$role$,$role$CASHIER$role$) AND t.is_demo', [hash(token)]);
-    if (!result.rowCount) throw new ApiError(401, 'UNAUTHENTICATED', '会话无效或已过期');
+    if (!result.rowCount) throw new ApiError(401, 'UNAUTHENTICATED', 'Session is invalid or has expired');
     res.locals.actor = result.rows[0];
     res.locals.tokenHash = hash(token);
     next();
@@ -76,12 +76,12 @@ export function businessRouter(pool: pg.Pool,config:Config,storage:ReceiptStorag
   router.get('/orders/:id', async (req, res) => {
     const id = z.uuid().parse(req.params.id);
     const result = await pool.query(`SELECT ${orderColumns} FROM orders WHERE tenant_id=$1 AND id=$2`, [res.locals.actor.tenant_id, id]);
-    if (!result.rowCount) throw new ApiError(404, 'NOT_FOUND', '订单不存在');
+    if (!result.rowCount) throw new ApiError(404, 'NOT_FOUND', 'Order not found');
     res.json({ order: result.rows[0] });
   });
   router.post('/orders', async (req, res) => {
     const actor: Actor = res.locals.actor;
-    if (!['OWNER', 'CASHIER'].includes(actor.role)) throw new ApiError(403, 'FORBIDDEN', '没有建立订单权限');
+    if (!['OWNER', 'CASHIER'].includes(actor.role)) throw new ApiError(403, 'FORBIDDEN', 'Not allowed to create orders');
     const body = createOrderSchema.parse(req.body);
     const key = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$/).parse(req.get('Idempotency-Key'));
     const requestHash = hash(JSON.stringify(body));
@@ -92,13 +92,13 @@ export function businessRouter(pool: pg.Pool,config:Config,storage:ReceiptStorag
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [JSON.stringify([actor.tenant_id, actor.id, '/orders', key])]);
       const prior = await client.query("SELECT request_hash,response FROM idempotency_keys WHERE tenant_id=$1 AND user_id=$2 AND route='/orders' AND key=$3", [actor.tenant_id, actor.id, key]);
       if (prior.rowCount) {
-        if (prior.rows[0].request_hash !== requestHash) throw new ApiError(409, 'IDEMPOTENCY_CONFLICT', '相同幂等键的请求内容不同');
+        if (prior.rows[0].request_hash !== requestHash) throw new ApiError(409, 'IDEMPOTENCY_CONFLICT', 'Idempotency key reused with different input');
         await client.query('COMMIT');
         res.set('Idempotency-Replayed', 'true').status(200).json(prior.rows[0].response); return;
       }
       if (body.customer_id) {
         const customer = await client.query('SELECT id FROM customers WHERE tenant_id=$1 AND id=$2', [actor.tenant_id, body.customer_id]);
-        if (!customer.rowCount) throw new ApiError(404, 'NOT_FOUND', '客户不存在');
+        if (!customer.rowCount) throw new ApiError(404, 'NOT_FOUND', 'Customer not found');
       }
       const order = await client.query(`INSERT INTO orders(id,tenant_id,external_id,customer_id,total_sen,currency) VALUES ($1,$2,$3,$4,$5,$6) RETURNING ${orderColumns}`, [randomUUID(), actor.tenant_id, body.external_id, body.customer_id ?? null, body.total_sen, body.currency]);
       const response = { order: order.rows[0] };
@@ -119,7 +119,7 @@ export function businessRouter(pool: pg.Pool,config:Config,storage:ReceiptStorag
   // Owner-only demo reset: the shop's synthetic orders, receipts and activity return to the seeded starting point.
   router.post('/demo/reset', async (_req, res) => {
     const actor: Actor = res.locals.actor;
-    if (actor.role !== 'OWNER') throw new ApiError(403, 'FORBIDDEN', '只有 Owner 可以重置演示数据');
+    if (actor.role !== 'OWNER') throw new ApiError(403, 'FORBIDDEN', 'Only the Owner can reset demo data');
     res.json(await resetDemoTenant(pool, actor.tenant_id, projectRoot));
   });
   router.use(verificationRouter(pool,config,storage));
@@ -127,17 +127,17 @@ export function businessRouter(pool: pg.Pool,config:Config,storage:ReceiptStorag
 }
 
 export function apiErrorHandler(error: unknown, _req: Request, res: Response, _next: NextFunction) {
-  let status = 500, code = 'INTERNAL_ERROR', message = '服务暂时无法处理请求';
+  let status = 500, code = 'INTERNAL_ERROR', message = 'The service cannot process this request right now';
   if (error instanceof ApiError) { ({ status, code, message } = error); }
-  else if (error instanceof z.ZodError || (error as { type?: string })?.type === 'entity.parse.failed') { status = 422; code = 'INVALID_INPUT'; message = '请求格式或字段无效'; }
+  else if (error instanceof z.ZodError || (error as { type?: string })?.type === 'entity.parse.failed') { status = 422; code = 'INVALID_INPUT'; message = 'Invalid request format or fields'; }
   else if ((error as { code?: string })?.code === '23505') {
     status = 409;
     const constraint = (error as { constraint?: string }).constraint;
     code = constraint === 'allocation_transaction_unique' ? 'TRANSACTION_ALREADY_USED' : constraint === 'bank_provider_unique' ? 'DUPLICATE_BANK_EVENT' : 'CONFLICT';
-    message = '记录已经存在';
+    message = 'Record already exists';
   }
   else if ((error as { code?: string })?.code === '55P03') { status = 409; code = 'RETRY_CONFLICT'; message = 'Concurrent update; retry with the same key'; }
-  else if ((error as { type?: string })?.type === 'entity.too.large') { status = 413; code = 'PAYLOAD_TOO_LARGE'; message = '请求内容过大'; }
-  else if (['ECONNREFUSED', 'ETIMEDOUT', '57P01', '42P01'].includes((error as { code?: string })?.code ?? '')) { status = 503; code = 'DATABASE_UNAVAILABLE'; message = '数据库未就绪'; }
+  else if ((error as { type?: string })?.type === 'entity.too.large') { status = 413; code = 'PAYLOAD_TOO_LARGE'; message = 'Request body is too large'; }
+  else if (['ECONNREFUSED', 'ETIMEDOUT', '57P01', '42P01'].includes((error as { code?: string })?.code ?? '')) { status = 503; code = 'DATABASE_UNAVAILABLE'; message = 'Database is not ready'; }
   res.status(status).json({ code, message, correlation_id: res.locals.correlationId ?? randomUUID() });
 }

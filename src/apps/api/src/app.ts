@@ -44,10 +44,10 @@ export function createApp(config: Config, webRoot?: string, pool?: pg.Pool,stora
   app.use(express.json({ limit: '16kb' }));
   if (pool) app.use('/api/v1', businessRouter(pool,config,receiptStorage));
   else app.use('/api/v1', (_req, res) => {
-    res.status(503).json({ code: 'DATABASE_REQUIRED', message: '请配置数据库并运行 migration 与 seed', correlation_id: randomUUID() });
+    res.status(503).json({ code: 'DATABASE_REQUIRED', message: 'Configure the database, then run migrations and seeds', correlation_id: randomUUID() });
   });
   app.use('/api', (_req, res) => {
-    res.status(404).json({ code: 'NOT_FOUND', message: '接口不存在', correlation_id: randomUUID() });
+    res.status(404).json({ code: 'NOT_FOUND', message: 'API route not found', correlation_id: randomUUID() });
   });
   if (webRoot) app.use(express.static(webRoot));
   app.use(apiErrorHandler);
