@@ -1,9 +1,9 @@
 import type { ReceiptFields, VerificationOutcome } from '../../../../../packages/contracts/src/index.js';
 
-export const RULE_VERSION = 'rules.v1-full-payment';
+export const RULE_VERSION = 'rules.v2-tenant-policy';
 export type BankRow = { id: string; account_identifier: string; active: boolean; version: number; bank_transaction_ref: string; amount_sen: number; currency: string; direction: string; status: string; booked_at: string | Date; allocated: boolean };
 // model_unconfirmed: GPU vision fields that the independent CPU reading did not reproduce (the model may have guessed).
-export type RuleInput = { total_sen: number; fields: ReceiptFields; accounts: string[]; transactions: BankRow[]; duplicate_evidence: boolean; duplicate_image?:boolean; duplicate_reference: boolean; manual: boolean; model_unconfirmed?: boolean };
+export type RuleInput = { total_sen: number; fields: ReceiptFields; accounts: string[]; transactions: BankRow[]; duplicate_evidence: boolean; duplicate_image?:boolean; duplicate_reference: boolean; manual: boolean; model_unconfirmed?: boolean; owner_review_threshold_sen?:number;policy_version?:number };
 export function verify(input: RuleInput) {
   const { fields: f } = input;
   const flags: string[] = [];
@@ -19,7 +19,8 @@ export function verify(input: RuleInput) {
   if (input.duplicate_reference) flags.push('DUPLICATE_REFERENCE');
   if (input.manual) flags.push('MANUAL_FIELDS');
   if (input.model_unconfirmed) flags.push('MODEL_UNCONFIRMED');
-  if (input.total_sen > 50000 || (f.amount_sen ?? 0) > 50000) flags.push('HIGH_VALUE');
+  const threshold=input.owner_review_threshold_sen??50000;
+  if (input.total_sen > threshold || (f.amount_sen ?? 0) > threshold) flags.push('HIGH_VALUE');
   if (f.amount_sen !== null && f.amount_sen < input.total_sen) flags.push('PARTIAL_PAYMENT');
   if (f.amount_sen !== null && f.amount_sen > input.total_sen) flags.push('OVERPAYMENT');
   // Only the synthetic adapter's explicit bank_transaction_ref has compatible semantics.
@@ -39,5 +40,5 @@ export function verify(input: RuleInput) {
     reasons.some(x => ['MONEY_REQUEST','TRANSFER_NOT_COMPLETE','WRONG_RECIPIENT','INVALID_RECEIPT'].includes(x)) ? 'INVALID_EVIDENCE' :
     reasons.length === 1 && reasons[0] === 'BANK_NOT_FOUND' ? 'AWAITING_BANK' : 'NEEDS_REVIEW';
   return { outcome, flags: reasons, candidates: candidates.map(t => t.id), matched_transaction_id: eligible ? candidates[0].id : null,
-    eligible, required_role, evidence_source: 'SYNTHETIC_FEED' as const, rule_version: RULE_VERSION };
+    eligible, required_role, evidence_source: 'SYNTHETIC_FEED' as const, rule_version: RULE_VERSION,policy_version:input.policy_version??1,owner_review_threshold_sen:threshold };
 }

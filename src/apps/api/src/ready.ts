@@ -5,7 +5,7 @@ import type pg from 'pg';
 import { projectRoot } from './paths.js';
 
 export async function checkReady(pool: pg.Pool) {
-  const required = ['001_identity_orders.sql','002_verification.sql','003_receipt_images.sql','004_runpod_extraction.sql','005_intake.sql'];
+  const required = ['001_identity_orders.sql','002_verification.sql','003_receipt_images.sql','004_runpod_extraction.sql','005_intake.sql','006_tenant_settings.sql'];
   const expected = await Promise.all(required.map(async name => ({ name, checksum: createHash('sha256').update(await readFile(join(projectRoot,'db/migrations',name),'utf8')).digest('hex') })));
   const client = await pool.connect();
   try {

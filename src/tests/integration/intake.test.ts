@@ -47,7 +47,7 @@ test('005 upgrades an existing four-migration database without rewriting history
   for(const file of ['001_demo.sql','002_verification.sql'])await copyFile(resolve('db/seeds',file),resolve(root,'db/seeds',file));
   await migrate(pool,root);await seed(pool,root);const before=(await pool.query('SELECT name,checksum FROM schema_migrations ORDER BY name')).rows;
   await migrate(pool);await seed(pool);
-  const after=(await pool.query('SELECT name,checksum FROM schema_migrations ORDER BY name')).rows;assert.deepEqual(after.slice(0,4),before);assert.equal(after.length,5);
+  const after=(await pool.query('SELECT name,checksum FROM schema_migrations ORDER BY name')).rows;assert.deepEqual(after.slice(0,4),before);assert.equal(after.length,6);
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM users WHERE role='SYSTEM'")).rows[0].n,2);
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM orders WHERE payment_state='UNPAID'")).rows[0].n,6);
  }finally{await pool.end();await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);await admin.end();assert.ok(root.startsWith(resolve('.local')+sep));await rm(root,{recursive:true,force:true});}
@@ -136,12 +136,12 @@ test('I0/I1 tenant isolation, durable intake and human-only payment',{skip:!url}
   });
   await t.test('P1-5 acknowledgements follow commit, failures preserve HTTP result, replay does not resend',async st=>{
    const o=await order(),l=await link(o.id),start=update('/start '+l.token);ackProbe=String(start.update_id);
-   assert.equal((await (await telegram(start)).json()).status,'ACCEPTED');assert.deepEqual(acknowledgements.at(-1),{chat_id:123,text:`Connected to order ${o.external_id}. Please send the payment receipt image here.`,committed:true});
+   assert.equal((await (await telegram(start)).json()).status,'ACCEPTED');assert.deepEqual(acknowledgements.at(-1),{chat_id:123,text:`Connected to order ${o.external_id}. This is a demo. Send only sample receipt images, not real bank receipts.`,committed:true});
    download=async()=>png();const image=update();ackProbe=String(image.update_id);assert.equal((await (await telegram(image)).json()).status,'ACCEPTED');assert.deepEqual(acknowledgements.at(-1),{chat_id:123,text:'Receipt received. The shop will check it. This does not mean the payment is confirmed.',committed:true});
    const sent=acknowledgements.length;assert.equal((await (await telegram(image)).json()).replayed,true);assert.equal(acknowledgements.length,sent);
    const warn=st.mock.method(console,'warn',()=>{}),next=update();ackProbe=String(next.update_id);ackFailure=true;
    const response=await telegram(next);assert.equal(response.status,200);assert.equal((await response.json()).status,'ACCEPTED');assert.equal(acknowledgements.length,sent+1);assert.equal(warn.mock.calls.length,1);assert.ok(!JSON.stringify(warn.mock.calls.map(c=>c.arguments)).includes('synthetic-token-only'));assert.equal(acknowledgements.at(-1).committed,true);
-   ackFailure=false;download=async()=>Buffer.from('bad image');const bad=update();ackProbe=String(bad.update_id);assert.equal((await (await telegram(bad)).json()).reason,'IMAGE_INVALID');assert.deepEqual(acknowledgements.at(-1),{chat_id:123,text:'Could not accept this: the image is invalid or not supported. Please ask the shop for a new link.',committed:true});
+   ackFailure=false;download=async()=>Buffer.from('bad image');const bad=update();ackProbe=String(bad.update_id);assert.equal((await (await telegram(bad)).json()).reason,'IMAGE_INVALID');assert.deepEqual(acknowledgements.at(-1),{chat_id:123,text:'Could not accept this: the image is invalid or not supported.',committed:true});
    const invalid=update('/start '+'a'.repeat(43));ackProbe=String(invalid.update_id);assert.equal((await (await telegram(invalid)).json()).reason,'LINK_INVALID');assert.match(acknowledgements.at(-1).text,/submission link is invalid or has expired/);assert.equal(acknowledgements.at(-1).committed,true);ackProbe=undefined;
   });
   await t.test('retry preserves original order binding during /start rebind and rejects out-of-order messages',async()=>{

@@ -56,6 +56,7 @@ export async function resetDemoTenant(pool: pg.Pool, tenantId: string, root = pr
     for (const name of (await readdir(join(root, 'db/seeds'))).filter(n => n.endsWith('.sql')).sort()) {
       await client.query(await readFile(join(root, 'db/seeds', name), 'utf8'));
     }
+    if(tenantId==='10000000-0000-4000-8000-000000000003')await client.query(await readFile(join(root,'fixtures/finalist/laundry.sql'),'utf8'));
     const orders = (await client.query('SELECT count(*)::int AS n FROM orders WHERE tenant_id=$1', [tenantId])).rows[0].n as number;
     await client.query('COMMIT');
     return { orders };

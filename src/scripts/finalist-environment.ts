@@ -9,7 +9,7 @@ import {createApp} from '../apps/api/src/app.js';
 import {readConfig} from '../apps/api/src/config.js';
 
 // This helper never contacts a hosted application or uses DATABASE_URL.
-export async function withFinalistEnvironment<T>(run:(base:string,pool:pg.Pool)=>Promise<T>){
+export async function withFinalistEnvironment<T>(run:(base:string,pool:pg.Pool)=>Promise<T>,options:{webRoot?:string}={}){
  const url=process.env.TEST_DATABASE_URL;
  if(!url)throw Error('A dedicated TEST_DATABASE_URL is required');
  const parsed=new URL(url);
@@ -23,7 +23,7 @@ export async function withFinalistEnvironment<T>(run:(base:string,pool:pg.Pool)=
   parsed.searchParams.set('options',`-c search_path=${schema}`);
   pool=new pg.Pool({connectionString:parsed.toString(),connectionTimeoutMillis:3000});
   await migrate(pool);await seed(pool);
-  server=createApp(readConfig({DATABASE_URL:parsed.toString(),RECEIPT_STORAGE_DIR:storage,EXTRACTOR_MODE:'fixture'}),undefined,pool).listen(0,'127.0.0.1');
+  server=createApp(readConfig({DATABASE_URL:parsed.toString(),RECEIPT_STORAGE_DIR:storage,EXTRACTOR_MODE:'fixture'}),options.webRoot,pool).listen(0,'127.0.0.1');
   await new Promise<void>((resolve,reject)=>{server!.once('listening',resolve);server!.once('error',reject);});
   const address=server.address();if(!address||typeof address==='string')throw Error('API did not bind');
   return await run(`http://127.0.0.1:${address.port}/api/v1`,pool);

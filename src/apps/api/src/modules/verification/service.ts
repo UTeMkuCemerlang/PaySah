@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {tenantPolicy} from './policy.js';
 import type pg from 'pg';
 import {receiptFieldsSchema} from '../../../../../packages/contracts/src/index.js';
 import {ApiError,type Actor} from '../../business.js';
@@ -29,7 +30,8 @@ export async function evaluate(c: Context, order: { id: string; total_sen: numbe
   const corrected = await c.db.query('SELECT 1 FROM receipt_corrections WHERE tenant_id=$1 AND receipt_id=$2 LIMIT 1', [c.actor.tenant_id, receipt.id]);
   // GPU fields count as confirmed only when the same-revision CPU reading reproduced every compared field.
   const unconfirmed = receipt.fields_provider==='RUNPOD_VLM' && (await c.db.query("SELECT 1 FROM extraction_runs WHERE tenant_id=$1 AND receipt_id=$2 AND revision=$3 AND provider='RUNPOD_VLM' AND jsonb_array_length(COALESCE(field_candidates->'disagreements','[\"missing\"]'::jsonb))>0 LIMIT 1", [c.actor.tenant_id, receipt.id, receipt.revision])).rowCount! > 0;
-  const result = verify({ total_sen: order.total_sen, fields, accounts: accounts.filter(a => a.active).map(a => a.account_identifier), transactions,
+  const policy=await tenantPolicy(c.db,c.actor.tenant_id);
+  const result = verify({ total_sen: order.total_sen, fields, accounts: accounts.filter(a => a.active).map(a => a.account_identifier), transactions,owner_review_threshold_sen:policy.owner_review_threshold_sen,policy_version:policy.policy_version,
     duplicate_evidence: duplicate.rows.some(r => r.content_fingerprint === receipt.content_fingerprint),
     duplicate_image: !!receipt.image_sha256&&duplicate.rows.some(r=>r.image_sha256===receipt.image_sha256),
     duplicate_reference: !!fields.bank_transaction_ref && duplicate.rows.some(r => r.fields.bank_transaction_ref === fields.bank_transaction_ref && r.fields.recipient_account === fields.recipient_account),

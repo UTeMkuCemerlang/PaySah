@@ -8,6 +8,7 @@
   },
   "scripts": {
     "demo:gate": "tsx scripts/demo-gate.ts",
+    "mock:orbyte": "tsx scripts/mock-orbyte.ts",
     "fixtures:images": "tsx scripts/generate-receipts.ts",
     "eval:ocr": "tsx scripts/evaluate-ocr.ts",
     "fixtures:ocr-expanded": "tsx scripts/generate-ocr-dataset.ts",
@@ -34,7 +35,7 @@
     "db:local:status": "tsx scripts/db-local.ts status",
     "dev": "concurrently -k -n api,web \"tsx watch --env-file-if-exists=.env apps/api/src/server.ts\" \"vite --config apps/web/vite.config.ts\"",
     "typecheck": "tsc --noEmit",
-    "build": "npm run typecheck && vite build --config apps/web/vite.config.ts && tsc -p apps/api/tsconfig.json",
+    "build": "npm run typecheck && vite build --config apps/web/vite.config.ts && tsc -p apps/api/tsconfig.json && tsx scripts/write-build-version.ts",
     "start": "node --env-file-if-exists=.env dist/apps/api/src/server.js",
     "start:deployment": "node --env-file-if-exists=.env dist/apps/api/src/deployment.js",
     "smoke:deployment": "tsx --env-file-if-exists=.env scripts/smoke-deployment.ts",

@@ -16,15 +16,15 @@ export type TelegramDownloader=(id:string)=>Promise<Buffer>;
 export type TelegramNotifier=(chatId:number,text:string)=>Promise<void>;
 export function telegramNotifier(config:Config,fetcher:typeof fetch=fetch):TelegramNotifier{
  return async(chatId,text)=>{
-  if(!config.TELEGRAM_ALLOWED_SENDERS?.split(',').includes(String(chatId)))return;
+  if(config.TELEGRAM_INTAKE_MODE==='allowlist'&&!config.TELEGRAM_ALLOWED_SENDERS?.split(',').includes(String(chatId)))return;
   const response=await fetcher(`https://api.telegram.org/bot${config.TELEGRAM_BOT_TOKEN}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,text}),signal:AbortSignal.timeout(5000),redirect:'error'});
   if(!response.ok||(await response.json())?.ok!==true)throw Error('Acknowledgement failed');
  };
 }
 async function acknowledge(notify:TelegramNotifier,chatId:number,result:{status:string;replayed?:boolean;reason?:string|null},externalId?:string){
  if(result.replayed||result.status==='IGNORED')return;
- const reasons:Record<string,string>={LINK_INVALID:'the submission link is invalid or has expired',IMAGE_INVALID:'the image is invalid or not supported'};
- const text=result.status==='ACCEPTED'?(externalId?`Connected to order ${externalId.replace(/[\r\n]/g,' ')}. Please send the payment receipt image here.`:'Receipt received. The shop will check it. This does not mean the payment is confirmed.'):reasons[result.reason??'']?`Could not accept this: ${reasons[result.reason!]}. Please ask the shop for a new link.`:null;
+ const reasons:Record<string,string>={RATE_LIMITED:'the demo submission limit has been reached; please try again later',LINK_INVALID:'the submission link is invalid or has expired',IMAGE_INVALID:'the image is invalid or not supported'};
+ const text=result.status==='ACCEPTED'?(externalId?`Connected to order ${externalId.replace(/[\r\n]/g,' ')}. This is a demo. Send only sample receipt images, not real bank receipts.`:'Receipt received. The shop will check it. This does not mean the payment is confirmed.'):reasons[result.reason??'']?`Could not accept this: ${reasons[result.reason!]}.` :null;
  if(text)try{await notify(chatId,text);}catch{console.warn('Telegram acknowledgement failed; reception result retained.');}
 }
 export function telegramDownloader(config:Config,fetcher:typeof fetch=fetch):TelegramDownloader{
@@ -47,13 +47,14 @@ export function telegramDownloader(config:Config,fetcher:typeof fetch=fetch):Tel
   }catch(e){if(e instanceof ApiError)throw e;throw new ApiError(503,'INTAKE_RETRY','Telegram file download interrupted');}
  };
 }
-export async function receiveTelegram(pool:pg.Pool,config:Config,storage:ReceiptStorage,body:unknown,download=telegramDownloader(config),notify=telegramNotifier(config)){
+export async function receiveTelegram(pool:pg.Pool,config:Config,storage:ReceiptStorage,body:unknown,download=telegramDownloader(config),notify=telegramNotifier(config)):Promise<{status:string;reason?:string|null;replayed?:boolean}>{
  const parsed=updateSchema.safeParse(body);
  if(!parsed.success)return {status:'IGNORED' as const};
  const update=parsed.data,m=update.message;
- if(m.chat.id!==m.from.id||!config.TELEGRAM_ALLOWED_SENDERS!.split(',').includes(String(m.from.id)))return {status:'IGNORED' as const};
+ if(m.chat.id!==m.from.id||(config.TELEGRAM_INTAKE_MODE==='allowlist'&&!config.TELEGRAM_ALLOWED_SENDERS?.split(',').includes(String(m.from.id))))return {status:'IGNORED' as const};
  if(!m.text?.startsWith('/start ')&&!m.document&&!m.photo)return {status:'IGNORED' as const};
  const connector:Connector={tenant:config.TELEGRAM_TENANT_ID!,channel:'TELEGRAM',id:config.TELEGRAM_CONNECTOR_ID};
+ if(config.TELEGRAM_INTAKE_MODE==='demo_link'&&!(await pool.query('SELECT id FROM tenants WHERE id=$1 AND is_demo',[connector.tenant])).rowCount)throw new ApiError(503,'INTAKE_RETRY','Demo intake requires a demo shop');
  const sender=createHmac('sha256',config.INTAKE_HMAC_SECRET!).update(`${connector.id}:${m.from.id}`).digest('hex'),payload=fingerprint(body);
  if(m.text?.startsWith('/start ')){
   const token=m.text.slice(7);
@@ -63,6 +64,12 @@ export async function receiveTelegram(pool:pg.Pool,config:Config,storage:Receipt
    if(prior){
     if(prior.payload_hash!==payload){await event(c,'intake.rejected','intake',prior.id,prior.order_id,{reason:'IDEMPOTENCY_CONFLICT',channel:connector.channel});return {conflict:true as const};}
     return {status:prior.status,reason:prior.reason,replayed:true};
+   }
+   const starts=(await c.db.query("SELECT count(*)::int AS n FROM intake_messages WHERE tenant_id=$1 AND channel='TELEGRAM' AND sender_hash=$2 AND created_at>now()-interval '1 hour'",[connector.tenant,sender])).rows[0].n;
+   if(config.TELEGRAM_INTAKE_MODE==='demo_link'&&starts>=config.TELEGRAM_MAX_STARTS_PER_HOUR){
+    const id=randomUUID();await c.db.query("INSERT INTO intake_messages(id,tenant_id,channel,connector_id,external_id,payload_hash,sender_hash,status,reason) VALUES ($1,$2,'TELEGRAM',$3,$4,$5,$6,'REJECTED','RATE_LIMITED')",[id,connector.tenant,connector.id,String(update.update_id),payload,sender]);
+    await event(c,'intake.rejected','intake',id,null,{reason:'RATE_LIMITED',channel:'TELEGRAM'});
+    return {status:'REJECTED',reason:'RATE_LIMITED',replayed:false};
    }
    const link=/^[A-Za-z0-9_-]{43}$/.test(token)?await validLink(c,connector,token):null;
    const old=(await c.db.query('SELECT * FROM intake_bindings WHERE tenant_id=$1 AND channel=$2 AND connector_id=$3 AND sender_hash=$4',[connector.tenant,connector.channel,connector.id,sender])).rows[0];

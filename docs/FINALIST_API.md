@@ -17,3 +17,11 @@ Owner `APPROVE` atomically confirms payment; `release` is a separate request usi
 ## Local evidence
 
 From `src/`, set a dedicated local `TEST_DATABASE_URL`, then run `npm run demo:gate`. The script creates and removes a random isolated schema and uses new synthetic orders. It does not contact production, OCR, RunPod or messaging services. Reports are labelled `LOCAL_FIXTURE`, not channel or visual accuracy evidence.
+
+## Tenant policies
+
+`GET /api/v1/tenant/settings` returns `{settings:{business_type,owner_review_threshold_sen,release_owner_threshold_sen,policy_version}}` for the session tenant; no tenant selector is accepted. The review snapshot also includes `settings`. Values are integer sen and positive policy version, read only through this API.
+
+Verification `result` now includes `policy_version` and `owner_review_threshold_sen`; rule version is `rules.v2-tenant-policy`. Confirm/approval reevaluate the policy within the existing tenant write transaction. Changed policy produces `STALE_APPROVAL` for old verification results; callers must request a new verification. After payment, release reads the current independent release threshold. Existing payment is never undone by a policy change. A missing policy returns 503 `POLICY_UNAVAILABLE`.
+
+Readiness now requires migration 006 and its exact checksum. Health also returns `commit`, build-time clean source Git SHA or `unknown`. This is additive; existing session/write/version/idempotency responses are retained.

@@ -1,4 +1,5 @@
 import {intakeRouter,type IntakeAdapters} from './modules/intake/router.js';
+import {buildCommit} from './build-version.js';
 import express from 'express';
 import { randomUUID } from 'node:crypto';
 import type { Config } from './config.js';
@@ -32,6 +33,7 @@ export function createApp(config: Config, webRoot?: string, pool?: pg.Pool,stora
   app.get('/api/v1/health', (_req, res) => {
     const health: Health = {
       status: 'ok', service: 'paysah-api', stage: 'M2', demo: true,
+      commit:buildCommit(),
       extractor_mode: config.EXTRACTOR_MODE,
       database: config.DATABASE_URL ? 'not_checked' : 'not_configured',
       business_features: pool ? 'identity_orders_verification' : 'database_required',

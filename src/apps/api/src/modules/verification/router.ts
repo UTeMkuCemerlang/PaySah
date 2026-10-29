@@ -1,5 +1,6 @@
 import {installIntakeLinks} from '../intake/links.js';
 import {auditDenied} from './denied.js';
+import {tenantPolicy} from './policy.js';
 import {event,supersede,evaluate,verifyReceipt,type Context} from './service.js';
 export {event,supersede} from './service.js';
 import { Router, type Request, type Response } from 'express';
@@ -180,7 +181,7 @@ export function verificationRouter(pool: pg.Pool,config:Config,storage:ReceiptSt
   router.post('/orders/:id/release',write(versionBody,async(c,b,req)=>{
     const order=await lockOrder(c,z.uuid().parse(req.params.id));checkVersion(order,b.expected_version);
     if(order.payment_state!=='PAID'||order.fulfillment_state!=='ON_HOLD')fail('RELEASE_BLOCKED','Only fully paid orders on hold can be released');
-    if(order.total_sen>50000)owner(c.actor);
+    if(order.total_sen>(await tenantPolicy(c.db,c.actor.tenant_id)).release_owner_threshold_sen)owner(c.actor);
     const updated=(await c.db.query("UPDATE orders SET fulfillment_state='RELEASED',version=version+1 WHERE tenant_id=$1 AND id=$2 RETURNING *",[c.actor.tenant_id,order.id])).rows[0];
     await event(c,'fulfillment.released','order',order.id,order.id,{ before:'ON_HOLD',after:'RELEASED',version:updated.version });
     return {order:updated};

@@ -8,6 +8,7 @@ import type {Config} from './config.js';
 import type {ReceiptStorage} from './modules/receipts/storage.js';
 import {resetDemoTenant} from './database-setup.js';
 import {projectRoot} from './paths.js';
+import {tenantPolicy} from './modules/verification/policy.js';
 
 export type Actor = { id: string; tenant_id: string; role: 'OWNER' | 'CASHIER' | 'SYSTEM'; display_name: string };
 export class ApiError extends Error {
@@ -61,6 +62,7 @@ export function businessRouter(pool: pg.Pool,config:Config,storage:ReceiptStorag
     next();
   });
   router.get('/session', (_req, res) => res.json({ actor: res.locals.actor }));
+  router.get('/tenant/settings',async(_req,res)=>res.json({settings:await tenantPolicy(pool,res.locals.actor.tenant_id)}));
   router.delete('/session', async (_req, res) => {
     await pool.query('DELETE FROM demo_sessions WHERE token_hash=$1', [res.locals.tokenHash]);
     res.status(204).end();

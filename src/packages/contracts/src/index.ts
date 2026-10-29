@@ -4,6 +4,7 @@ export const extractorModeSchema = z.enum(['fixture', 'manual', 'cpu_ocr', 'runp
 export const healthSchema = z.object({
   status: z.literal('ok'), service: z.literal('paysah-api'),
   stage: z.literal('M2'), demo: z.literal(true),
+  commit:z.string().regex(/^(unknown|[0-9a-f]{40})$/),
   extractor_mode: extractorModeSchema,
   database: z.enum(['not_configured', 'not_checked']),
   business_features: z.enum(['identity_orders_verification', 'database_required']),

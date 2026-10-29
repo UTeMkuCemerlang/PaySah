@@ -3,6 +3,11 @@ import { extractorModeSchema } from '../../../packages/contracts/src/index.js';
 
 const schema = z.object({
   TELEGRAM_ENABLED:z.enum(['true','false']).default('false'),
+  TELEGRAM_INTAKE_MODE:z.enum(['allowlist','demo_link']).default('allowlist'),
+  TELEGRAM_MAX_IMAGES_PER_HOUR:z.coerce.number().int().min(1).max(100).default(10),
+  TELEGRAM_MAX_TENANT_IMAGES_PER_DAY:z.coerce.number().int().min(1).max(1000).default(100),
+  TELEGRAM_MAX_GLOBAL_IMAGES_PER_DAY:z.coerce.number().int().min(1).max(1000).default(200),
+  TELEGRAM_MAX_STARTS_PER_HOUR:z.coerce.number().int().min(1).max(100).default(30),
   TELEGRAM_TENANT_ID:z.uuid().optional(),
   TELEGRAM_CONNECTOR_ID:z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).default('team-bot'),
   TELEGRAM_BOT_TOKEN:z.string().min(10).optional(),
@@ -35,7 +40,7 @@ const schema = z.object({
   // With the 15 s model lookup and up to 30 s of CPU reading this stays inside the 180 s job lease.
   RUNPOD_TIMEOUT_MS:z.coerce.number().int().min(5000).max(80000).default(75000),
 }).superRefine((value,ctx)=>{
-  if(value.TELEGRAM_ENABLED==='true'&&(!value.TELEGRAM_TENANT_ID||!value.TELEGRAM_BOT_TOKEN||!value.TELEGRAM_WEBHOOK_SECRET||!value.TELEGRAM_BOT_USERNAME||!value.TELEGRAM_ALLOWED_SENDERS||!value.INTAKE_HMAC_SECRET))ctx.addIssue({code:'custom',message:'Telegram needs explicit tenant, bot, secret, allowlist and sender HMAC configuration'});
+  if(value.TELEGRAM_ENABLED==='true'&&(!value.TELEGRAM_TENANT_ID||!value.TELEGRAM_BOT_TOKEN||!value.TELEGRAM_WEBHOOK_SECRET||!value.TELEGRAM_BOT_USERNAME||!value.INTAKE_HMAC_SECRET||(value.TELEGRAM_INTAKE_MODE==='allowlist'&&!value.TELEGRAM_ALLOWED_SENDERS)))ctx.addIssue({code:'custom',message:'Telegram needs explicit tenant, bot, secret, sender HMAC and an allowlist in allowlist mode'});
   if(value.GOOGLE_FORM_ENABLED==='true'&&(!value.GOOGLE_FORM_TENANT_ID||!value.GOOGLE_FORM_INGEST_KEY||!value.GOOGLE_FORM_PREFILL_URL))ctx.addIssue({code:'custom',message:'Google Form needs explicit tenant, key and prefilled URL'});
   if(value.STORAGE_DRIVER==='replit'&&!value.REPLIT_STORAGE_BUCKET_ID)ctx.addIssue({code:'custom',path:['REPLIT_STORAGE_BUCKET_ID'],message:'Explicit private bucket required'});
   if(value.EXTRACTOR_MODE==='runpod'&&(!value.RUNPOD_API_KEY||!value.RUNPOD_ENDPOINT_ID))ctx.addIssue({code:'custom',path:['RUNPOD_API_KEY'],message:'runpod mode requires RUNPOD_API_KEY and RUNPOD_ENDPOINT_ID'});
