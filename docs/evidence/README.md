@@ -6,9 +6,13 @@ These reports were generated locally on 30 October 2026 from source commit `a97d
 | --- | --- | --- | --- |
 | `2026-10-30T14-39-03.363Z` | `npm run demo:gate` | PASS: Cashier confirm 403 `OWNER_APPROVAL_REQUIRED`, release of unpaid order 409 `RELEASE_BLOCKED`, Cashier decision 403 `FORBIDDEN`, Owner approve 200 (PAID, ON_HOLD), separate release 200 (RELEASED) | [gate](gate/2026-10-30T14-39-03.363Z.json) |
 | `2026-10-30T14-39-09.264Z` | `npm run eval:e2e` | 8/8 known-answer decisions; 0 false admissions; 0 wrong releases; 0 false blocks | [summary](e2e/summary.md), [results](e2e/results.json) |
+| `2026-10-30T14-53-00.809Z` | `npm run demo:exceptions` | Six blocked fixtures stay UNPAID and ON_HOLD with Owner confirm 409 `EVIDENCE_BLOCKED`; duplicate evidence blocked; high value needs the Owner; rejected and superseded approvals return 409 `STALE_APPROVAL`; simulated failed read returns 409 `EXTRACTION_NOT_READY` until corrected, then needs the Owner; another shop gets 404 | [exceptions](exceptions/2026-10-30T14-53-00.809Z.json) |
+| `2026-10-30T14:52:31.840Z` | `npm run eval:ocr-expanded` | CPU OCR on 36 synthetic images: 190/252 fields, 18/36 exact, 21/21 expected blocks held (0 false eligible), 9 of 15 valid cases blocked for review | [summary](cpu-ocr/2026-10-30-summary.json) |
+
+The first two and the CPU OCR run used a clean `a97d56f` application source. The exception run used the same application source plus the added walkthrough script, which changes no application code. Failed read in the exception run is simulated.
 
 ## What these do not show
 
-These are structured fixture workflows through the real API and database. They are not vision accuracy, real channel delivery, employee time or business impact measurements, and zero error counts apply only to this test set. The latency figures in the results are local request times and cannot be used as employee time.
+The gate, fixture and exception reports are structured workflows through the real API and database. The CPU OCR run measures one engine on the same synthetic set used for earlier diagnostics, so it is not a held-out test. None of these is GPU accuracy, real channel delivery, employee time or business impact measurements, and zero error counts apply only to this test set. The latency figures in the results are local request times and cannot be used as employee time.
 
-Not yet measured: human processing time, observed employee file actions, new GPU and CPU reading accuracy, live channel latency and platform cost. See the [measurement protocol](../FINALIST_MEASUREMENT.md). Run live checks separately and record their own commit and run ID here.
+Not yet measured: human processing time, observed employee file actions, new GPU reading accuracy, live channel latency and platform cost. See the [measurement protocol](../FINALIST_MEASUREMENT.md). Run live checks separately and record their own commit and run ID here.

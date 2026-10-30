@@ -7,6 +7,11 @@ import {randomUUID} from 'node:crypto';
 import {verify} from '../../apps/api/src/modules/verification/rules.js';
 import {fixtures} from '../../apps/api/src/modules/verification/fixtures.js';
 import {demonstrateOrbyte} from '../../scripts/mock-orbyte.js';
+import {demonstrateExceptions} from '../../scripts/demo-exceptions.js';
+
+test('Finalist exception walkthrough keeps every blocked case unpaid',{skip:!process.env.TEST_DATABASE_URL},async()=>{
+ await withFinalistEnvironment(demonstrateExceptions);
+});
 
 test('Finalist direct API gate, denied audit, order timeline and incremental activity isolation',{skip:!process.env.TEST_DATABASE_URL},async()=>{
  await withFinalistEnvironment(demonstrateGate);

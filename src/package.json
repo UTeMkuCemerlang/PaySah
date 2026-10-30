@@ -8,6 +8,7 @@
   },
   "scripts": {
     "demo:gate": "tsx scripts/demo-gate.ts",
+    "demo:exceptions": "tsx scripts/demo-exceptions.ts",
     "mock:orbyte": "tsx scripts/mock-orbyte.ts",
     "eval:e2e": "tsx scripts/evaluate-finalist.ts",
     "smoke:finalist": "tsx scripts/smoke-finalist.ts",
