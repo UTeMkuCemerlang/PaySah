@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" width="1200" height="760" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>PaySah final system architecture</title>
+  <desc>Channels and staff reach an Express API on Replit. A durable worker reads receipts with RunPod and CPU OCR. Deterministic rules compare fields with a synthetic bank feed, and people confirm payment and release separately.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#475467"/></marker>
+    <style>
+      .box{fill:#fff;stroke:#98a2b3;stroke-width:1.5;rx:10}
+      .ai{fill:#f4ebff;stroke:#7f56d9}
+      .rule{fill:#ecfdf3;stroke:#12b76a}
+      .gate{fill:#fef3f2;stroke:#f04438}
+      .mock{fill:#f9fafb;stroke:#98a2b3;stroke-dasharray:6 4}
+      .data{fill:#eff8ff;stroke:#2e90fa}
+      .t{font-size:15px;font-weight:600;fill:#101828}
+      .s{font-size:12.5px;fill:#475467}
+      .g{font-size:13px;font-weight:600;fill:#344054}
+      .l{font-size:12px;fill:#475467}
+      .e{stroke:#475467;stroke-width:1.5;fill:none;marker-end:url(#a)}
+      .zone{fill:#f9fafb;stroke:#d0d5dd;stroke-width:1.2;rx:14}
+    </style>
+  </defs>
+  <rect width="1200" height="760" fill="#fff"/>
+
+  <!-- Inputs -->
+  <text class="g" x="24" y="34">Triggers and people</text>
+  <rect class="box" x="24" y="48" width="196" height="62"/><text class="t" x="38" y="74">Telegram bot</text><text class="s" x="38" y="94">Webhook, order-linked, quotas</text>
+  <rect class="box" x="24" y="124" width="196" height="62"/><text class="t" x="38" y="150">Google Form</text><text class="s" x="38" y="170">Apps Script, signed intake</text>
+  <rect class="box" x="24" y="200" width="196" height="62"/><text class="t" x="38" y="226">Cashier and Owner</text><text class="s" x="38" y="246">React web workspace</text>
+  <rect class="box mock" x="24" y="276" width="196" height="62"/><text class="t" x="38" y="302">Orbyte mock adapter</text><text class="s" x="38" y="322">Proposed contract, not live</text>
+
+  <!-- Replit zone -->
+  <rect class="zone" x="270" y="24" width="660" height="560"/>
+  <text class="g" x="288" y="50">Replit deployment (single Reserved VM)</text>
+
+  <rect class="box" x="288" y="66" width="290" height="96"/>
+  <text class="t" x="302" y="92">Express API (Node 24, TypeScript)</text>
+  <text class="s" x="302" y="112">Session identity, tenant scope, Zod contracts,</text>
+  <text class="s" x="302" y="130">idempotency keys, order versions, per-shop lock</text>
+  <text class="s" x="302" y="148">Health reports the build commit</text>
+
+  <rect class="box" x="618" y="66" width="290" height="96"/>
+  <text class="t" x="632" y="92">Durable receipt worker</text>
+  <text class="s" x="632" y="112">Lease-based job queue, retries, recovery.</text>
+  <text class="s" x="632" y="130">Records the actual provider and fallback reason</text>
+
+  <rect class="box rule" x="288" y="196" width="290" height="96"/>
+  <text class="t" x="302" y="222">Deterministic rule engine</text>
+  <text class="s" x="302" y="242">Amount, account, reference, status, duplicates,</text>
+  <text class="s" x="302" y="260">independent bank credit, shop policy threshold.</text>
+  <text class="s" x="302" y="278">The model never approves a payment</text>
+
+  <rect class="box gate" x="618" y="196" width="290" height="96"/>
+  <text class="t" x="632" y="222">Backend approval gate</text>
+  <text class="s" x="632" y="242">Cashier confirm on an Owner case: 403.</text>
+  <text class="s" x="632" y="260">Owner cannot override missing evidence.</text>
+  <text class="s" x="632" y="278">Release is separate. Denials are audited.</text>
+
+  <rect class="box data" x="288" y="330" width="290" height="104"/>
+  <text class="t" x="302" y="356">PostgreSQL</text>
+  <text class="s" x="302" y="376">Orders, receipts, verifications, approvals, jobs,</text>
+  <text class="s" x="302" y="394">tenant_settings, intake_messages, activity_events.</text>
+  <text class="s" x="302" y="412">SQL migrations 001 to 006</text>
+
+  <rect class="box data" x="618" y="330" width="290" height="104"/>
+  <text class="t" x="632" y="356">Private App Storage</text>
+  <text class="s" x="632" y="376">Receipt images, served only after session and</text>
+  <text class="s" x="632" y="394">tenant checks</text>
+
+  <rect class="box data" x="288" y="468" width="290" height="96"/>
+  <text class="t" x="302" y="494">Synthetic bank feed</text>
+  <text class="s" x="302" y="514">Independent demonstration evidence.</text>
+  <text class="s" x="302" y="532">No real bank connection, no money moved</text>
+
+  <rect class="box" x="618" y="468" width="290" height="96"/>
+  <text class="t" x="632" y="494">Real-time Activity Log</text>
+  <text class="s" x="632" y="514">Ordered events polled every 5 seconds; order</text>
+  <text class="s" x="632" y="532">timelines; after_seq cursor for the adapter</text>
+
+  <!-- GPU and CPU -->
+  <text class="g" x="976" y="34">Receipt reading (GenAI)</text>
+  <rect class="box ai" x="976" y="48" width="200" height="104"/>
+  <text class="t" x="990" y="74">RunPod Serverless</text>
+  <text class="s" x="990" y="94">Official vLLM worker</text>
+  <text class="s" x="990" y="112">Qwen2.5-VL-7B-Instruct</text>
+  <text class="s" x="990" y="130">Active workers 0</text>
+  <rect class="box" x="976" y="176" width="200" height="104"/>
+  <text class="t" x="990" y="202">CPU OCR (Tesseract.js)</text>
+  <text class="s" x="990" y="222">Cross-checks GPU fields;</text>
+  <text class="s" x="990" y="240">takes over on GPU failure.</text>
+  <text class="s" x="990" y="258">Disagreement: Owner review</text>
+
+  <!-- Result strip -->
+  <rect class="box" x="24" y="620" width="1152" height="108" rx="12"/>
+  <text class="g" x="44" y="648">Workflow: Trigger → Decision → Approval → Action → Result</text>
+  <text class="s" x="44" y="672">1 Receipt arrives by channel or upload   2 Worker reads fields   3 Rules decide eligibility and required role   4 Cashier confirms, or Owner approves or rejects</text>
+  <text class="s" x="44" y="694">5 Payment is confirmed   6 Order is released in a separate step   7 Every step, including denied attempts, is in the Activity Log</text>
+  <text class="s" x="44" y="716">A screenshot, OCR reading or manual field edit is never proof of payment. Dashed box: mock. Bank feed: synthetic.</text>
+
+  <!-- Edges -->
+  <path class="e" d="M220 79H254V100H286"/>
+  <path class="e" d="M220 155H254V114H286"/>
+  <path class="e" d="M220 231H262V130H286"/>
+  <path class="e" d="M220 307H270V146H286"/>
+  <path class="e" d="M578 114H616"/>
+  <path class="e" d="M908 92H974"/>
+  <path class="e" d="M908 130H942V228H974"/>
+  <path class="e" d="M433 162V194"/>
+  <path class="e" d="M578 244H616"/>
+  <path class="e" d="M433 292V328"/>
+  <path class="e" d="M908 150H922V382H910"/>
+  <path class="e" d="M640 292V311H500V328"/>
+  <path class="e" d="M578 400H600V136"/>
+  <path class="e" d="M433 466V436"/>
+  <path class="e" d="M578 420H598V516H616"/>
+</svg>

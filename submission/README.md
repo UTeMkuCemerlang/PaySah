@@ -27,3 +27,13 @@ The original reviewed screenshot pixels are preserved. Both platform proof PDFs 
 RunPod evidence update (24 October 2026): the linked PDF contains five unaltered team-supplied screenshots covering endpoint/model, metrics, worker, deployment list and account usage. Originals are in runpod/2026-10-24/. The displayed 110 requests (100 completed, 10 failed) and USD 24.17 balance are historical dashboard values.
 
 Replit evidence update (24 October 2026): four original screenshots show the live domain, publishing workflow, workspace preview and account usage. Original files are in replit/2026-10-24/. The publishing-progress screenshot does not establish that its Promote stage completed; the usage filter is All workspaces.
+
+## Finalist materials
+
+| Required material | Filename | Status |
+| --- | --- | --- |
+| Final report | SDC2026_UTeMkuCemerlang_Final.pdf | Not yet submitted |
+| Technical tools declaration | SDC2026_UTeMkuCemerlang_TechDeclaration.pdf | Not yet submitted |
+| Flattened pitch deck | PDF, name to be set by the team | Not yet submitted |
+
+The Phase 1 documents above keep their original paths and describe Phase 1 only.

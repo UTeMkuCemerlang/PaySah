@@ -63,7 +63,7 @@ src/                         Complete runnable application
   submission/                Technical disclosures and prior validation notes
   .env.example               Configuration template; no live credentials
   package.json               Commands and dependencies
-docs/                        Finalist API, runbook, Orbyte mock and measurement protocol
+docs/                        Architecture, exception demo, cost and privacy notes, Finalist API, runbook, Orbyte mock, measurement protocol and local evidence
 runpod/                      RunPod Serverless vLLM endpoint configuration and request example
 submission/
   replit/                    Reviewed Replit screenshots
@@ -82,6 +82,10 @@ Submission documents: [preliminary proposal](submission/SDC2026_UTeMkuCemerlang_
 Receipt upload or channel intake → Express API and private image storage → persistent extraction worker → RunPod vision model or CPU fallback → server-side verification against orders and bank evidence → Cashier / Owner review → separate confirmation and release → activity log.
 
 PostgreSQL stores orders, receipt fields, jobs and audit records. Server-side identity, tenant and permission checks protect business operations. The demonstration bank feed is synthetic.
+
+![PaySah final system architecture](docs/architecture.png)
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for components, trust boundaries and failure behaviour.
 
 ## How to run
 
@@ -154,10 +158,18 @@ Licensed under [Apache-2.0](LICENSE). Third-party packages retain their respecti
 
 The finalist source adds versioned shop policies, an optional Laundry SME fixture, denied-action auditing, order-filtered incremental activity, five-second workspace refresh and draft protection, a proposed Orbyte mock, explicit bounded Telegram demo-link intake and build commit metadata. These source changes are separate from the existing live deployment; production migration and release still need verification. The PDFs linked above describe Phase 1 and are not rewritten Finalist reports.
 
+- [Architecture](docs/ARCHITECTURE.md)
 - [API contract](docs/FINALIST_API.md)
 - [Safe migration and deployment runbook](docs/FINALIST_RUNBOOK.md)
 - [Proposed Orbyte mock](docs/ORBYTE_INTEGRATION.md)
+- [Exception path demo script](docs/EXCEPTION_DEMO.md)
+- [Cost, privacy and scale notes](docs/COST_PRIVACY_SCALE.md)
 - [Measurement protocol and unfilled observation format](docs/FINALIST_MEASUREMENT.md)
+- [Local gate and fixture evidence](docs/evidence/README.md)
+
+Check which source the live site runs by opening [/api/v1/health](https://paysah.replit.app/api/v1/health) and comparing `stage` and `commit` with this repository. Later documentation-only commits do not change the application source.
+
+For reviewers on the live demo: choose a synthetic account, create a new order and use its Google Form link. Do not use the protected recording orders DEMO-A-128 and DEMO-A-780. Send only synthetic sample images, never a real bank receipt.
 
 To verify the approval gate yourself, set a dedicated local test database and run from `src/`:
 
