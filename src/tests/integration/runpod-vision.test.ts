@@ -17,6 +17,9 @@ const highValueJson=JSON.stringify({amount:'780.00',currency:'MYR',bank_transact
 
 test('RunPod output is normalised strictly; unsure values become null, never guesses',()=>{
   const ok=normaliseVisionOutput('```json\n'+highValueJson+'\n```');
+  assert.deepEqual(ok.uncertain_fields,[]);
+  assert.deepEqual(normaliseVisionOutput(JSON.stringify({amount:'128.00',uncertain_fields:'amount'})).uncertain_fields,[]);
+  assert.deepEqual(normaliseVisionOutput(JSON.stringify({amount:'128.00',uncertain_fields:['amount','amount','status','ignore checks']})).uncertain_fields,['amount_sen','status']);
   assert.deepEqual(ok.fields,{...fixtures.high_value});assert.deepEqual(ok.missing_fields,[]);
   const loose=normaliseVisionOutput(JSON.stringify({amount:780,currency:'USD',bank_transaction_ref:'x'.repeat(101),recipient_account:'****1234',occurred_at:'2026-10-22 14:00',status:'DONE',document_type:'receipt',payment_state:'PAID'}));
   assert.equal(loose.fields.amount_sen,null);assert.equal(loose.fields.bank_transaction_ref,null);assert.equal(loose.fields.occurred_at,null);
@@ -84,6 +87,42 @@ test('RunPod provider through the durable worker: GPU fields, CPU fallback, unch
       const v=(await ok(`/orders/${order.id}/verifications`,{receipt_id:receipt.id,expected_version:1})).verification;
       assert.equal(v.result.eligible,true);assert.equal(v.result.required_role,'OWNER');assert.ok(!v.result.flags.includes('MANUAL_FIELDS'));assert.ok(!v.result.flags.includes('MODEL_UNCONFIRMED'));
       assert.deepEqual((await pool!.query('SELECT field_candidates FROM extraction_runs WHERE receipt_id=$1',[receipt.id])).rows[0].field_candidates.disagreements,[]);
+    });
+    await t.test('Third reader runs only on disagreement, gives advice only and cannot stop the review',async()=>{
+      const reading=(amount:string)=>JSON.stringify({...JSON.parse(highValueJson),amount});
+      const stub=(json:string)=>({engine:'stub',extractFields:async()=>({...normaliseVisionOutput(json),raw_text:json,request_id:null,model:'stub'})}) as VisionExtractor;
+      const run=async(cpu:{extract:()=>Promise<string>},third:VisionExtractor)=>{
+        const order=(await ok('/orders',{external_id:randomUUID(),total_sen:78000})).order,receipt=(await ok(`/orders/${order.id}/demo-receipt-images`,{fixture_id:'high_value',expected_version:1})).receipt;
+        await processReceiptJob(pool!,storage,cpu,stub(highValueJson),third);
+        const stored=(await ok(`/receipts/${receipt.id}/extractions`)).runs[0];
+        return {order,stored,v:(await ok(`/orders/${order.id}/verifications`,{receipt_id:receipt.id,expected_version:1})).verification};
+      };
+      let calls=0;const counted:VisionExtractor={engine:'stub',extractFields:async()=>{calls++;throw Error('should not run');}};
+      const agreed=await run(cpuAgrees,counted);assert.equal(calls,0);assert.equal(agreed.stored.field_candidates.third_reading,undefined);
+      const backed=await run(cpuDiffers,stub(reading('780.00')));
+      assert.equal(backed.stored.field_candidates.third_reading.status,'OK');assert.equal(backed.stored.field_candidates.third_reading.fields.amount_sen.supports,'GPU');
+      assert.ok(backed.v.result.flags.includes('MODEL_UNCONFIRMED'));assert.equal(backed.v.result.required_role,'OWNER');
+      assert.equal((await ok(`/orders/${backed.order.id}`)).order.payment_state,'UNPAID');
+      const neither=await run(cpuDiffers,stub(reading('781.00')));assert.equal(neither.stored.field_candidates.third_reading.fields.amount_sen.supports,'NEITHER');assert.equal(neither.stored.fields.amount_sen,78000);
+      const down=await run(cpuDiffers,{engine:'stub',extractFields:async()=>{throw new RunpodError('RUNPOD_TIMEOUT');}});
+      assert.deepEqual(down.stored.field_candidates.third_reading,{status:'UNAVAILABLE',reason:'RUNPOD_TIMEOUT'});assert.equal(down.stored.status,'COMPLETED');assert.ok(down.v.result.flags.includes('MODEL_UNCONFIRMED'));
+      const base={DATABASE_URL:url,EXTRACTOR_MODE:'runpod',RUNPOD_API_KEY:'rpa_SYNTHETICTESTKEY',RUNPOD_ENDPOINT_ID:'abc123'};
+      assert.throws(()=>readConfig({...base,THIRD_READER_MODEL:'some-model'}));assert.throws(()=>readConfig({...base,THIRD_READER_BASE_URL:'http://example.test/v1',THIRD_READER_API_KEY:'synthetic-test-key',THIRD_READER_MODEL:'some-model'}));
+    });
+    await t.test('Model doubt sends a clean low-value receipt to the Owner, and cannot pass a blocked one',async()=>{
+      const unsureJson=(ref:string)=>JSON.stringify({amount:'128.00',currency:'MYR',bank_transaction_ref:ref,customer_reference:'DEMO-ORDER',recipient_account:'DEMO-ACCOUNT-A',occurred_at:'2026-10-22T06:00:00Z',status:'SUCCESS',document_type:'TRANSFER_RECEIPT',uncertain_fields:['amount','not_a_field']});
+      const cpu=(ref:string)=>({extract:async()=>['Amount: RM 128.00','Bank transaction ref: '+ref,'Customer reference: DEMO-ORDER','Recipient account: DEMO-ACCOUNT-A','Occurred at: 2026-10-22T06:00:00Z','Status: SUCCESS','Document type: TRANSFER_RECEIPT'].join('\n')});
+      const read=async(ref:string,fixture_id:string)=>{
+        const order=(await ok('/orders',{external_id:randomUUID(),total_sen:12800})).order,receipt=(await ok(`/orders/${order.id}/demo-receipt-images`,{fixture_id,expected_version:1})).receipt;
+        const vision:VisionExtractor={engine:'runpod-vllm:test',extractFields:async()=>({...normaliseVisionOutput(unsureJson(ref)),raw_text:unsureJson(ref),request_id:null,model:'test'})};
+        await processReceiptJob(pool!,storage,cpu(ref),vision);
+        return {order,receipt,v:(await ok(`/orders/${order.id}/verifications`,{receipt_id:receipt.id,expected_version:1})).verification};
+      };
+      const clean=await read('DEMO-BANK-128','normal');
+      assert.deepEqual(clean.v.result.flags,['MODEL_UNSURE']);assert.equal(clean.v.result.eligible,true);assert.equal(clean.v.result.required_role,'OWNER');
+      assert.deepEqual((await ok(`/receipts/${clean.receipt.id}/extractions`)).runs[0].field_candidates.uncertain_fields,['amount_sen']);
+      const blocked=await read('DEMO-NOT-BOOKED','no_bank');
+      assert.equal(blocked.v.result.eligible,false);assert.ok(blocked.v.result.flags.includes('BANK_NOT_FOUND'));assert.ok(blocked.v.result.flags.includes('MODEL_UNSURE'));
     });
     await t.test('GPU value the CPU reading does not reproduce is flagged MODEL_UNCONFIRMED (Owner only), not blocked',async()=>{
       const order=(await ok('/orders',{external_id:randomUUID(),total_sen:78000})).order;

@@ -2,8 +2,10 @@ import {installIntakeLinks} from '../intake/links.js';
 import {auditDenied} from './denied.js';
 import {replyDraft} from './reply-draft.js';
 import {tenantPolicy} from './policy.js';
+import {createPaymentLink} from '../intake/mock-payment.js';
 import {event,supersede,evaluate,verifyReceipt,type Context} from './service.js';
 export {event,supersede} from './service.js';
+import {payable} from './service.js';
 import { Router, type Request, type Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
@@ -18,6 +20,7 @@ import {imageHash,type ReceiptStorage} from '../receipts/storage.js';
 import {orderReview} from './review.js';
 
 const versionBody = z.object({ expected_version: versionSchema }).strict();
+const shortfallBody = z.object({ expected_version: versionSchema, reason: z.string().trim().min(3).max(500) }).strict();
 const policyBody = z.object({ owner_review_threshold_sen: z.number().int().min(0).max(100000000), expected_policy_version: versionSchema, reason: z.string().trim().min(3).max(500) }).strict();
 const verificationBody = z.object({ receipt_id: z.uuid(), expected_version: versionSchema }).strict();
 const correctionBody = z.object({ expected_revision: versionSchema, expected_version: versionSchema, fields: receiptFieldsSchema, reason: z.string().trim().min(3).max(500) }).strict();
@@ -34,7 +37,7 @@ const one = async (db: pg.PoolClient | pg.Pool, sql: string, args: unknown[]) =>
 };
 const lockOrder = (c: Context, id: string) => one(c.db, 'SELECT * FROM orders WHERE tenant_id=$1 AND id=$2 FOR UPDATE', [c.actor.tenant_id, id]);
 function checkVersion(order: { version: number }, version: number) { if (order.version !== version) fail('STALE_VERSION', 'Order changed; reload and verify again'); }
-function unpaid(order: { payment_state: string }) { if (order.payment_state !== 'UNPAID') fail('PAYMENT_STATE_CONFLICT', 'This branch only supports unpaid orders'); }
+function unpaid(order: { payment_state: string }) { if (!payable(order.payment_state)) fail('PAYMENT_STATE_CONFLICT', 'This order is not awaiting payment'); }
 export function verificationRouter(pool: pg.Pool,config:Config,storage:ReceiptStorage) {
   const router = Router();
   // One transaction-scoped tenant lock orders all M2 mutations across API instances.
@@ -115,6 +118,11 @@ export function verificationRouter(pool: pg.Pool,config:Config,storage:ReceiptSt
     await one(pool, 'SELECT id FROM orders WHERE tenant_id=$1 AND id=$2', [res.locals.actor.tenant_id,orderId]);
     res.json({ receipts: (await pool.query('SELECT * FROM receipts WHERE tenant_id=$1 AND order_id=$2 ORDER BY created_at,id', [res.locals.actor.tenant_id,orderId])).rows.map(publicReceipt) });
   });
+  // Asks the payment simulator for a customer link. Bank evidence arrives later through the signed webhook.
+  router.post('/orders/:id/payment-links', write(versionBody, async (c, b, req) => {
+    const order = await lockOrder(c, z.uuid().parse(req.params.id)); checkVersion(order,b.expected_version); unpaid(order);
+    return await createPaymentLink(c,config,order);
+  },201));
   // Owner sets the shop's review limit. A new policy version makes earlier checks and pending approvals stale; existing payments stay paid.
   router.post('/tenant/settings', write(policyBody, async (c, b) => {
     owner(c.actor);
@@ -166,7 +174,7 @@ export function verificationRouter(pool: pg.Pool,config:Config,storage:ReceiptSt
     const {v,order,result}=state;
     if (!result.eligible) fail('EVIDENCE_BLOCKED','Evidence cannot establish full payment');
     if (result.required_role==='OWNER') owner(c.actor);
-    await c.db.query('INSERT INTO payment_allocations(id,tenant_id,order_id,bank_transaction_id,verification_id,amount_sen) VALUES ($1,$2,$3,$4,$5,$6)',[randomUUID(),c.actor.tenant_id,order.id,result.matched_transaction_id,v.id,order.total_sen]);
+    await c.db.query('INSERT INTO payment_allocations(id,tenant_id,order_id,bank_transaction_id,verification_id,amount_sen) VALUES ($1,$2,$3,$4,$5,$6)',[randomUUID(),c.actor.tenant_id,order.id,result.matched_transaction_id,v.id,result.due_sen]);
     const paid = (await c.db.query("UPDATE orders SET payment_state='PAID',version=version+1 WHERE tenant_id=$1 AND id=$2 RETURNING *",[c.actor.tenant_id,order.id])).rows[0];
     await event(c,'payment.confirmed','order',order.id,order.id,{ before:order.payment_state,after:'PAID',verification_id:v.id,source:'SYNTHETIC_FEED',version:paid.version });
     await supersede(c,order.id);
@@ -178,6 +186,30 @@ export function verificationRouter(pool: pg.Pool,config:Config,storage:ReceiptSt
     if (!state.result.eligible) fail('EVIDENCE_BLOCKED','Evidence cannot establish full payment');
     if (state.result.required_role==='OWNER') throw new ApiError(403,'OWNER_APPROVAL_REQUIRED','Use the Owner approval workflow');
     return pay(c,state);
+  }));
+  // Owner keeps a short but real bank credit on the order. The balance stays due and the order stays on hold.
+  router.post('/verifications/:id/record-partial',write(versionBody,async(c,b,req)=>{
+    owner(c.actor);
+    if(!(await c.db.query("SELECT 1 FROM schema_migrations WHERE name='008_partial_payments.sql'")).rowCount)throw new ApiError(503,'PART_PAYMENT_UNAVAILABLE','Part payments are unavailable until the database is updated');
+    const state=await current(c,z.uuid().parse(req.params.id));checkVersion(state.order,b.expected_version);
+    if(!state.result.partial_eligible)fail('EVIDENCE_BLOCKED','Only a real, unused bank credit can be recorded as part payment');
+    await c.db.query('INSERT INTO payment_allocations(id,tenant_id,order_id,bank_transaction_id,verification_id,amount_sen) VALUES ($1,$2,$3,$4,$5,$6)',[randomUUID(),c.actor.tenant_id,state.order.id,state.result.partial_transaction_id,state.v.id,state.result.partial_amount_sen]);
+    const updated=(await c.db.query("UPDATE orders SET payment_state='PARTIALLY_PAID',version=version+1 WHERE tenant_id=$1 AND id=$2 RETURNING *",[c.actor.tenant_id,state.order.id])).rows[0];
+    await event(c,'payment.partial_recorded','order',state.order.id,state.order.id,{before:state.order.payment_state,after:'PARTIALLY_PAID',amount_sen:state.result.partial_amount_sen,due_sen:state.result.due_sen-state.result.partial_amount_sen!,verification_id:state.v.id,source:'SYNTHETIC_FEED',version:updated.version});
+    await supersede(c,state.order.id);
+    return {order:updated};
+  }));
+  // Highest permission: the Owner accepts less than the total. It needs at least one real credit, and is never shown as fully paid.
+  router.post('/orders/:id/accept-shortfall',write(shortfallBody,async(c,b,req)=>{
+    owner(c.actor);
+    const order=await lockOrder(c,z.uuid().parse(req.params.id));checkVersion(order,b.expected_version);
+    if(order.payment_state!=='PARTIALLY_PAID')fail('PAYMENT_STATE_CONFLICT','Record a real part payment first');
+    const paid_sen=(await c.db.query('SELECT COALESCE(sum(amount_sen),0)::int AS n FROM payment_allocations WHERE tenant_id=$1 AND order_id=$2',[c.actor.tenant_id,order.id])).rows[0].n as number;
+    if(paid_sen<=0)fail('EVIDENCE_BLOCKED','No bank credit is recorded on this order');
+    const updated=(await c.db.query("UPDATE orders SET payment_state='MANUALLY_CONFIRMED',version=version+1 WHERE tenant_id=$1 AND id=$2 RETURNING *",[c.actor.tenant_id,order.id])).rows[0];
+    await event(c,'payment.shortfall_accepted','order',order.id,order.id,{before:order.payment_state,after:'MANUALLY_CONFIRMED',paid_sen,total_sen:order.total_sen,shortfall_sen:order.total_sen-paid_sen,reason:b.reason,version:updated.version});
+    await supersede(c,order.id);
+    return {order:updated};
   }));
   router.post('/verifications/:id/approval-requests',write(versionBody,async(c,b,req)=>{
     const state=await current(c,z.uuid().parse(req.params.id));checkVersion(state.order,b.expected_version);
@@ -204,7 +236,8 @@ export function verificationRouter(pool: pg.Pool,config:Config,storage:ReceiptSt
   }));
   router.post('/orders/:id/release',write(versionBody,async(c,b,req)=>{
     const order=await lockOrder(c,z.uuid().parse(req.params.id));checkVersion(order,b.expected_version);
-    if(order.payment_state!=='PAID'||order.fulfillment_state!=='ON_HOLD')fail('RELEASE_BLOCKED','Only fully paid orders on hold can be released');
+    if(!['PAID','MANUALLY_CONFIRMED'].includes(order.payment_state)||order.fulfillment_state!=='ON_HOLD')fail('RELEASE_BLOCKED','Only confirmed orders on hold can be released');
+    if(order.payment_state==='MANUALLY_CONFIRMED')owner(c.actor);
     if(order.total_sen>(await tenantPolicy(c.db,c.actor.tenant_id)).release_owner_threshold_sen)owner(c.actor);
     const updated=(await c.db.query("UPDATE orders SET fulfillment_state='RELEASED',version=version+1 WHERE tenant_id=$1 AND id=$2 RETURNING *",[c.actor.tenant_id,order.id])).rows[0];
     await event(c,'fulfillment.released','order',order.id,order.id,{ before:'ON_HOLD',after:'RELEASED',version:updated.version });

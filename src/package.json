@@ -13,6 +13,8 @@
     "eval:e2e": "tsx scripts/evaluate-finalist.ts",
     "smoke:finalist": "tsx scripts/smoke-finalist.ts",
     "smoke:rehearsal": "tsx scripts/smoke-rehearsal.ts",
+    "smoke:mock-payment": "tsx scripts/smoke-mock-payment.ts",
+    "mock-payment": "node integrations/mock-payment/PaySah_Amount_Mock.cjs",
     "smoke:live-fixes": "tsx scripts/smoke-live-fixes.ts",
     "score:finalist": "tsx scripts/score-finalist-study.ts",
     "fixtures:images": "tsx scripts/generate-receipts.ts",

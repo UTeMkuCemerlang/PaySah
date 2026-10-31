@@ -1,4 +1,6 @@
 import {randomBytes,randomUUID} from 'node:crypto';
+import {mockPaymentEnabled} from './mock-payment.js';
+import {payable} from '../verification/service.js';
 import type {Router} from 'express';
 import type pg from 'pg';
 import {z} from 'zod';
@@ -15,7 +17,7 @@ export function installIntakeLinks(router:Router,pool:pg.Pool,write:Write,config
   if(!(await pool.query('SELECT 1 FROM orders WHERE tenant_id=$1 AND id=$2',[tenant,id])).rowCount)throw new ApiError(404,'NOT_FOUND','Order not found');
   const channels=['TELEGRAM','GOOGLE_FORM'].filter(ch=>{const c=connectorFor(config,ch);return c.enabled&&c.tenant===tenant;});
   const links=(await pool.query('SELECT id AS link_id,channel,expires_at,revoked_at FROM intake_links WHERE tenant_id=$1 AND order_id=$2 ORDER BY created_at DESC LIMIT 20',[tenant,id])).rows;
-  res.json({channels,links});
+  res.json({channels,links,mock_payment:mockPaymentEnabled(config)});
  });
  router.post('/orders/:id/intake-links',async(req,res,next)=>{
   let created:string|undefined;
@@ -25,7 +27,7 @@ export function installIntakeLinks(router:Router,pool:pg.Pool,write:Write,config
    const order=(await c.db.query('SELECT * FROM orders WHERE tenant_id=$1 AND id=$2 FOR UPDATE',[c.actor.tenant_id,id])).rows[0];
    if(!order)throw new ApiError(404,'NOT_FOUND','Order not found');
    if(order.version!==b.expected_version)throw new ApiError(409,'STALE_VERSION','Order changed');
-   if(order.payment_state!=='UNPAID')throw new ApiError(409,'PAYMENT_STATE_CONFLICT','Order is not unpaid');
+   if(!payable(order.payment_state))throw new ApiError(409,'PAYMENT_STATE_CONFLICT','Order is not awaiting payment');
    const token=randomBytes(32).toString('base64url'),linkId=randomUUID();
    const replaced=await c.db.query('UPDATE intake_links SET revoked_at=now() WHERE tenant_id=$1 AND order_id=$2 AND channel=$3 AND connector_id=$4 AND revoked_at IS NULL RETURNING id',[c.actor.tenant_id,id,b.channel,connector.id]);
    for(const old of replaced.rows)await event(c,'intake.link_revoked','intake_link',old.id,id,{reason:'REPLACED',channel:b.channel});
@@ -41,7 +43,7 @@ export function installIntakeLinks(router:Router,pool:pg.Pool,write:Write,config
   const order=(await c.db.query('SELECT * FROM orders WHERE tenant_id=$1 AND id=$2 FOR UPDATE',[c.actor.tenant_id,id])).rows[0];
   if(!order)throw new ApiError(404,'NOT_FOUND','Order not found');
   if(order.version!==b.expected_version)throw new ApiError(409,'STALE_VERSION','Order changed');
-  if(order.payment_state!=='UNPAID')throw new ApiError(409,'PAYMENT_STATE_CONFLICT','Order is not unpaid');
+  if(!payable(order.payment_state))throw new ApiError(409,'PAYMENT_STATE_CONFLICT','Order is not awaiting payment');
   const changed=await c.db.query('UPDATE intake_links SET revoked_at=COALESCE(revoked_at,now()) WHERE tenant_id=$1 AND order_id=$2 AND id=$3 RETURNING id',[c.actor.tenant_id,id,linkId]);
   if(!changed.rowCount)throw new ApiError(404,'NOT_FOUND','Link not found');
   await event(c,'intake.link_revoked','intake_link',linkId,id,{});return {link_id:linkId,revoked:true};

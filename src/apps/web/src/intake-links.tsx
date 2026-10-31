@@ -15,3 +15,15 @@ export function IntakeLinks({api,id,version,unpaid}:{api:ApiClient;id:string;ver
  {links.value.links.filter(l=>!l.revoked_at&&Date.parse(l.expires_at)>Date.now()).map(l=><div className="intake-link-row" key={l.link_id}><span>{l.channel==='TELEGRAM'?'Telegram':'Google Form'} · expires {time(l.expires_at)} MYT</span>{unpaid&&<button className="button ghost small" disabled={busy} onClick={async()=>{setBusy(true);setError(undefined);try{await api.write(`/orders/${id}/intake-links/${l.link_id}/revoke`,{expected_version:version});setUrl('');setNotice('Submission link revoked.');links.refresh();}catch(e){setError(e);}finally{setBusy(false);}}}>Revoke {l.channel==='TELEGRAM'?'Telegram':'Google Form'} link</button>}</div>)}
  </section>;
 }
+
+// A team-made payment simulator. It moves no money, and paying through it does not confirm the order.
+export function MockPaymentLink({api,id,version,unpaid}:{api:ApiClient;id:string;version:number;unpaid:boolean}){
+ const available=useResource(s=>api.get<{mock_payment?:boolean}>(`/orders/${id}/intake-links`,s),[api,id]);
+ const [url,setUrl]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState<unknown>();
+ async function create(){setBusy(true);setError(undefined);setUrl('');try{setUrl((await api.write<{url:string}>(`/orders/${id}/payment-links`,{expected_version:version})).url);}catch(e){setError(e);}finally{setBusy(false);}}
+ if(!available.value?.mock_payment||!unpaid)return null;
+ return <section className="intake-links" aria-label="Mock customer payment"><h3>Try a mock customer payment</h3><p className="muted">No real money. The customer chooses the amount, and PaySah checks it. Paying this way does not confirm the order.</p><Notice error={error}/>
+  <div className="heading-actions"><button className="button ghost small" disabled={busy} onClick={()=>void create()}>Create mock payment link</button></div>
+  {url&&<div className="form-stack"><label>Mock payment link<input readOnly value={url} onFocus={e=>e.target.select()}/></label><a className="button secondary small" href={url} target="_blank" rel="noreferrer">Open as customer</a></div>}
+ </section>;
+}

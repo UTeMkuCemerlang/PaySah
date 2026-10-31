@@ -6,6 +6,7 @@ import type {ReceiptStorage} from '../receipts/storage.js';
 import {ApiError} from '../../business.js';
 import {receiveTelegram,telegramNotifier,type TelegramDownloader} from './telegram.js';
 import {receiveGoogleForm} from './google-form.js';
+import {mockPaymentEnabled,receiveMockPayment,validMockSignature} from './mock-payment.js';
 export type IntakeAdapters={now?:()=>number;telegramDownload?:TelegramDownloader;telegramFetch?:typeof fetch};
 export function intakeRouter(pool:pg.Pool,config:Config,storage:ReceiptStorage,adapters:IntakeAdapters={}){
  const router=express.Router();let inFlight=0;const buckets=new Map<string,{count:number;until:number}>();
@@ -23,6 +24,13 @@ export function intakeRouter(pool:pg.Pool,config:Config,storage:ReceiptStorage,a
    res.once('finish',release);res.once('close',()=>{if(!res.locals.intakeProcessing)release();});next();
   };
  }
+ router.post('/mock-payment',express.raw({type:'application/json',limit:'32kb'}),async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  if(!mockPaymentEnabled(config))throw new ApiError(404,'NOT_FOUND','Channel unavailable');
+  const raw=Buffer.isBuffer(req.body)?req.body:Buffer.alloc(0);
+  if(!validMockSignature(config,raw,req.get('X-Mock-Signature')))throw new ApiError(401,'UNAUTHENTICATED','Invalid channel credential');
+  res.json(await receiveMockPayment(pool,raw));
+ });
  router.post('/telegram',gate(config.TELEGRAM_ENABLED==='true','X-Telegram-Bot-Api-Secret-Token',config.TELEGRAM_WEBHOOK_SECRET),express.json({limit:'1mb'}),async(req,res)=>{
   // Bounded per-sender buckets, after the global gate and body limit. IDs never enter durable logs.
   const sender=String(req.body?.message?.from?.id??'invalid'),key='sender:'+sender,now=(adapters.now??Date.now)(),b=buckets.get(key)??{count:0,until:now+60000};

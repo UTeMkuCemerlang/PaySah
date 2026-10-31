@@ -22,15 +22,15 @@ const started=new Date(),dir=resolve('evaluation/compare-vlm',label,started.toIS
 await mkdir(dir,{recursive:true});
 const rows:ReturnType<typeof evaluateSample>[]=[];
 const credits:BankRow[]=[12800,78000].map(amount=>({id:`diagnostic-${amount}`,account_identifier:'DEMO-ACCOUNT-A',active:true,version:1,bank_transaction_ref:`DEMO-BANK-${amount===12800?'128':'780'}`,amount_sen:amount,currency:'MYR',direction:'CREDIT',status:'BOOKED',booked_at:'2026-10-22T06:00:00Z',allocated:false}));
-const checked:Array<{id:string;disagreements:string[];eligible:boolean;required_role:string;expected_eligible:boolean;cashier_wrongly_eligible:boolean}>=[];let failuresInRow=0,status='FINISHED';
+const checked:Array<{id:string;disagreements:string[];uncertain_fields:string[];wrong_fields:string[];eligible:boolean;required_role:string;expected_eligible:boolean;cashier_wrongly_eligible:boolean}>=[];let failuresInRow=0,status='FINISHED';
 const save=async()=>writeFile(resolve(dir,'results.json'),JSON.stringify({kind:`${label} vision model vs CPU OCR, synthetic receipts only (offline comparison, not used by the app)`,checked_at:started.toISOString(),status,provider:label,model,
   prompt_version:RUNPOD_PROMPT_VERSION,parser_version:RUNPOD_PARSER_VERSION,manifest_sha256:dataset.manifest_sha256,cpu_baseline_checked_at:dataset.cpu_checked_at,
   note:'Same 36-image diagnostic set and prompt as the RunPod run; not a held-out set. Wall time includes network, so it is not a fair speed comparison.',
-  summary:summarize(rows,limit),with_cpu_cross_check:{rule:'Model field differs from CPU reading -> MODEL_UNCONFIRMED -> Owner review',cashier_wrongly_eligible:checked.filter(c=>c.cashier_wrongly_eligible).length,owner_routed_by_cross_check:checked.filter(c=>c.disagreements.length).length,rows:checked},rows},null,2).replaceAll(key,'[REDACTED]')+'\n');
+  summary:summarize(rows,limit),model_self_report:{note:'The model naming its own doubts; a low count here does not make a reading safe',receipts_flagged:checked.filter(c=>c.uncertain_fields.length).length,receipts_with_wrong_fields:checked.filter(c=>c.wrong_fields.length).length,wrong_fields_total:checked.reduce((n,c)=>n+c.wrong_fields.length,0),wrong_fields_flagged:checked.reduce((n,c)=>n+c.wrong_fields.filter(k=>c.uncertain_fields.includes(k)).length,0),correct_fields_flagged:checked.reduce((n,c)=>n+c.uncertain_fields.filter(k=>!c.wrong_fields.includes(k)).length,0)},with_cpu_cross_check:{rule:'Model field differs from CPU reading -> MODEL_UNCONFIRMED -> Owner review',cashier_wrongly_eligible:checked.filter(c=>c.cashier_wrongly_eligible).length,owner_routed_by_cross_check:checked.filter(c=>c.disagreements.length).length,rows:checked},rows},null,2).replaceAll(key,'[REDACTED]')+'\n');
 for(const sample of dataset.samples){
-  const t=Date.now();let result:JobResult;
+  const t=Date.now();let result:JobResult,uncertain:string[]=[];
   try{
-    const r=await extractor.extractFields(sample.bytes,sample.mime_type);
+    const r=await extractor.extractFields(sample.bytes,sample.mime_type);uncertain=r.uncertain_fields;
     result={job_id:r.request_id,state:'COMPLETED',error:null,output:{protocol_version:'paysah-extraction.v1',model_id:r.model,model_revision:'served-by-provider',device:'cuda',gpu_name:'provider-managed (remote API)',fields:r.fields} as JobResult['output'],raw:r.raw_text.slice(0,4000),events:[],cancellation:'NOT_NEEDED'};
     failuresInRow=0;
   }catch(e){
@@ -40,8 +40,8 @@ for(const sample of dataset.samples){
   rows.push(evaluateSample(sample,result,Date.now()-t));
   if(result.output){
     const disagreements=fieldDisagreements(result.output.fields,sample.cpu.actual);
-    const rule=verify({total_sen:sample.total_sen,fields:result.output.fields,accounts:['DEMO-ACCOUNT-A'],transactions:credits,duplicate_evidence:false,duplicate_reference:false,manual:false,model_unconfirmed:disagreements.length>0});
-    checked.push({id:sample.id,disagreements,eligible:rule.eligible,required_role:rule.required_role,expected_eligible:sample.expected_eligible,cashier_wrongly_eligible:!sample.expected_eligible&&rule.eligible&&rule.required_role==='CASHIER'});
+    const rule=verify({total_sen:sample.total_sen,fields:result.output.fields,accounts:['DEMO-ACCOUNT-A'],transactions:credits,duplicate_evidence:false,duplicate_reference:false,manual:false,model_unconfirmed:disagreements.length>0,model_unsure:uncertain.length>0});
+    checked.push({id:sample.id,disagreements,uncertain_fields:uncertain,wrong_fields:fieldDisagreements(result.output.fields,sample.expected),eligible:rule.eligible,required_role:rule.required_role,expected_eligible:sample.expected_eligible,cashier_wrongly_eligible:!sample.expected_eligible&&rule.eligible&&rule.required_role==='CASHIER'});
   }
   console.log(`${sample.id}: ${result.state}${result.error?' '+result.error:''} · ${rows.at(-1)!.correct_fields}/7 fields (CPU ${sample.cpu.correct_fields}/7) · ${Date.now()-t} ms`);
   await save();

@@ -1,4 +1,5 @@
 import {intakeRouter,type IntakeAdapters} from './modules/intake/router.js';
+import {mockPayProxy} from './mock-pay-process.js';
 import {buildCommit} from './build-version.js';
 import express from 'express';
 import { randomUUID } from 'node:crypto';
@@ -41,6 +42,7 @@ export function createApp(config: Config, webRoot?: string, pool?: pg.Pool,stora
     };
     res.set('Cache-Control', 'no-store').json(health);
   });
+  if(config.MOCK_PAY_PUBLIC_URL)app.use('/pay',mockPayProxy(config));
   if(pool)app.use('/api/v1/intake',intakeRouter(pool,config,receiptStorage,intakeAdapters));
   app.use(express.json({ limit: '16kb' }));
   if (pool) app.use('/api/v1', businessRouter(pool,config,receiptStorage));

@@ -10,6 +10,7 @@ export type Context = { db: pg.PoolClient; actor: Actor; correlation: string; st
 export async function event(c: Context, action: string, type: string, id: string, orderId: string | null, payload: unknown) {
   await c.db.query('INSERT INTO activity_events(id,tenant_id,actor_id,action,entity_type,entity_id,order_id,payload,correlation_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)', [randomUUID(), c.actor.tenant_id, c.actor.id, action, type, id, orderId, JSON.stringify(payload), c.correlation]);
 }
+export const payable=(state:string)=>state==='UNPAID'||state==='PARTIALLY_PAID';
 export async function supersede(c: Context, orderId: string) {
   await c.db.query('UPDATE verifications SET active=false WHERE tenant_id=$1 AND order_id=$2', [c.actor.tenant_id, orderId]);
   const changed = await c.db.query("UPDATE approvals SET status='SUPERSEDED',version=version+1 WHERE tenant_id=$1 AND order_id=$2 AND status='PENDING' RETURNING id", [c.actor.tenant_id, orderId]);
@@ -29,13 +30,15 @@ export async function evaluate(c: Context, order: { id: string; total_sen: numbe
   const duplicate = await c.db.query("SELECT content_fingerprint,fields,image_sha256 FROM receipts WHERE tenant_id=$1 AND order_id<>$2 ORDER BY id", [c.actor.tenant_id, order.id]);
   const corrected = await c.db.query('SELECT 1 FROM receipt_corrections WHERE tenant_id=$1 AND receipt_id=$2 LIMIT 1', [c.actor.tenant_id, receipt.id]);
   // GPU fields count as confirmed only when the same-revision CPU reading reproduced every compared field.
+  const modelUnsure = receipt.fields_provider==='RUNPOD_VLM' && (await c.db.query("SELECT 1 FROM extraction_runs WHERE tenant_id=$1 AND receipt_id=$2 AND revision=$3 AND provider='RUNPOD_VLM' AND jsonb_array_length(COALESCE(field_candidates->'uncertain_fields','[]'::jsonb))>0 LIMIT 1", [c.actor.tenant_id, receipt.id, receipt.revision])).rowCount! > 0;
   const unconfirmed = receipt.fields_provider==='RUNPOD_VLM' && (await c.db.query("SELECT 1 FROM extraction_runs WHERE tenant_id=$1 AND receipt_id=$2 AND revision=$3 AND provider='RUNPOD_VLM' AND jsonb_array_length(COALESCE(field_candidates->'disagreements','[\"missing\"]'::jsonb))>0 LIMIT 1", [c.actor.tenant_id, receipt.id, receipt.revision])).rowCount! > 0;
   const policy=await tenantPolicy(c.db,c.actor.tenant_id);
-  const result = verify({ total_sen: order.total_sen, fields, accounts: accounts.filter(a => a.active).map(a => a.account_identifier), transactions,owner_review_threshold_sen:policy.owner_review_threshold_sen,policy_version:policy.policy_version,
+  const paid_sen=(await c.db.query('SELECT COALESCE(sum(amount_sen),0)::int AS n FROM payment_allocations WHERE tenant_id=$1 AND order_id=$2',[c.actor.tenant_id,order.id])).rows[0].n as number;
+  const result = verify({ total_sen: order.total_sen, paid_sen, fields, accounts: accounts.filter(a => a.active).map(a => a.account_identifier), transactions,owner_review_threshold_sen:policy.owner_review_threshold_sen,policy_version:policy.policy_version,
     duplicate_evidence: duplicate.rows.some(r => r.content_fingerprint === receipt.content_fingerprint),
     duplicate_image: !!receipt.image_sha256&&duplicate.rows.some(r=>r.image_sha256===receipt.image_sha256),
     duplicate_reference: !!fields.bank_transaction_ref && duplicate.rows.some(r => r.fields.bank_transaction_ref === fields.bank_transaction_ref && r.fields.recipient_account === fields.recipient_account),
-    manual: receipt.source === 'MANUAL' || receipt.fields_provider==='MANUAL' || !!corrected.rowCount, model_unconfirmed: unconfirmed });
+    manual: receipt.source === 'MANUAL' || receipt.fields_provider==='MANUAL' || !!corrected.rowCount, model_unconfirmed: unconfirmed, model_unsure: modelUnsure });
   return { result, evidence_hash: fingerprint({ accounts, transactions, duplicate: duplicate.rows, fields, revision: receipt.revision }) };
 }
 
@@ -47,7 +50,7 @@ export async function verifyReceipt(c:Context,input:{orderId:string;receiptId:st
  const order=(await c.db.query('SELECT * FROM orders WHERE tenant_id=$1 AND id=$2 FOR UPDATE',[c.actor.tenant_id,input.orderId])).rows[0];
  if(!order)throw new ApiError(404,'NOT_FOUND','Order not found');
  if(order.version!==input.expectedVersion)throw new ApiError(409,'STALE_VERSION','Order changed');
- if(order.payment_state!=='UNPAID')throw new ApiError(409,'PAYMENT_STATE_CONFLICT','Order is not unpaid');
+ if(!payable(order.payment_state))throw new ApiError(409,'PAYMENT_STATE_CONFLICT','Order is not awaiting payment');
  const receipt=(await c.db.query('SELECT * FROM receipts WHERE tenant_id=$1 AND order_id=$2 AND id=$3',[c.actor.tenant_id,order.id,input.receiptId])).rows[0];
  if(!receipt)throw new ApiError(404,'NOT_FOUND','Receipt not found');
  if(order.current_receipt_id!==receipt.id)throw new ApiError(409,'STALE_RECEIPT','Newer evidence exists');

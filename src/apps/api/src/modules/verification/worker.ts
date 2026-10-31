@@ -20,7 +20,7 @@ export async function processVerificationJob(pool:pg.Pool,storage:ReceiptStorage
    if(!(await c.db.query("SELECT 1 FROM verification_jobs WHERE tenant_id=$1 AND id=$2 AND status='RUNNING' AND lease_token=$3 AND lease_until>now() FOR UPDATE",[job.tenant_id,job.id,job.lease_token])).rowCount)return;
    const order=(await c.db.query('SELECT * FROM orders WHERE tenant_id=$1 AND id=$2 FOR UPDATE',[job.tenant_id,job.order_id])).rows[0];
    const receipt=(await c.db.query('SELECT * FROM receipts WHERE tenant_id=$1 AND id=$2',[job.tenant_id,job.receipt_id])).rows[0];
-   if(!order||!receipt||order.payment_state!=='UNPAID'||order.current_receipt_id!==receipt.id||receipt.revision!==job.expected_revision){await c.db.query("UPDATE verification_jobs SET status='CANCELLED',lease_token=NULL,lease_until=NULL WHERE id=$1",[job.id]);return;}
+   if(!order||!receipt||!['UNPAID','PARTIALLY_PAID'].includes(order.payment_state)||order.current_receipt_id!==receipt.id||receipt.revision!==job.expected_revision){await c.db.query("UPDATE verification_jobs SET status='CANCELLED',lease_token=NULL,lease_until=NULL WHERE id=$1",[job.id]);return;}
    await verifyReceipt(c,{orderId:order.id,receiptId:receipt.id,expectedVersion:order.version,expectedRevision:job.expected_revision});
    await c.db.query("UPDATE verification_jobs SET status='COMPLETED',last_error=NULL,lease_token=NULL,lease_until=NULL WHERE id=$1",[job.id]);
   });

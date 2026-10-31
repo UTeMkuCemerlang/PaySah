@@ -22,9 +22,21 @@ From `src/`, set a dedicated local `TEST_DATABASE_URL`, then run `npm run demo:g
 
 `GET /api/v1/tenant/settings` returns `{settings:{business_type,owner_review_threshold_sen,release_owner_threshold_sen,policy_version}}` for the session tenant; no tenant selector is accepted. The review snapshot also includes `settings`. Values are integer sen and positive policy version, read only through this API.
 
-Verification `result` now includes `policy_version` and `owner_review_threshold_sen`; rule version is `rules.v2-tenant-policy`. Confirm/approval reevaluate the policy within the existing tenant write transaction. Changed policy produces `STALE_APPROVAL` for old verification results; callers must request a new verification. After payment, release reads the current independent release threshold. Existing payment is never undone by a policy change. A missing policy returns 503 `POLICY_UNAVAILABLE`.
+Verification `result` now includes `policy_version` and `owner_review_threshold_sen`; rule version was `rules.v2-tenant-policy` and is now `rules.v3-model-unsure`. Confirm/approval reevaluate the policy within the existing tenant write transaction. Changed policy produces `STALE_APPROVAL` for old verification results; callers must request a new verification. After payment, release reads the current independent release threshold. Existing payment is never undone by a policy change. A missing policy returns 503 `POLICY_UNAVAILABLE`.
 
 Readiness now requires migration 006 and its exact checksum. Health also returns `commit`, build-time clean source Git SHA or `unknown`. This is additive; existing session/write/version/idempotency responses are retained.
+
+## Part payment and accepted difference (2026-10-31)
+
+Migration `008_partial_payments.sql` lets one order hold several bank credits; a credit still belongs to one order only. Rules compare a receipt with the amount still due (`due_sen`). `POST /api/v1/verifications/:id/record-partial` (Owner, version and idempotency as usual) records a real, unused credit that is only short of the amount due, and moves the order to `PARTIALLY_PAID`. It stays on hold, and further receipts or payment links are accepted. Payment reaches `PAID` only when a matching credit equals the balance. `POST /api/v1/orders/:id/accept-shortfall` with `{expected_version,reason}` is the Owner's highest permission: it needs a recorded part payment, moves the order to `MANUALLY_CONFIRMED`, never `PAID`, and logs the difference and reason. Release allows `MANUALLY_CONFIRMED` for an Owner only. With no bank credit, neither route can pay or release an order. Without migration 008, `record-partial` returns 503 and the rest of the application keeps working. The web page asks the user to think twice before approval and before accepting a difference; that prompt is a browser step, not a server control.
+
+## Mock customer payment (2026-10-31)
+
+A team-made simulator, `integrations/mock-payment/PaySah_Amount_Mock.cjs`, stands in for a payment gateway. It moves no money. With `MOCK_PAY_URL`, `MOCK_PAY_API_KEY` and `MOCK_PAY_WEBHOOK_SECRET` set, `POST /api/v1/orders/:id/payment-links` asks it for a customer link. The customer chooses the amount. The simulator then calls `POST /api/v1/intake/mock-payment`, signed with HMAC SHA-256 in `X-Mock-Signature`, and PaySah records a synthetic bank credit and a receipt on the order. Replays add nothing. The order stays unpaid: rules still compare the amount, and a person confirms and releases. Without those settings the routes return 404. The simulator keeps its links in memory, so they end when it restarts. With `MOCK_PAY_PUBLIC_URL` set and a local `MOCK_PAY_URL`, the API starts the simulator itself, restarts it if it stops, and serves customer pages at `/pay` on the same address.
+
+## Model doubt and third reading (2026-10-31)
+
+The vision prompt is `receipt-fields.v2` and may return `uncertain_fields`. Any listed field adds `MODEL_UNSURE` (rule version `rules.v3-model-unsure`), which requires the Owner and clears no blocker. With `THIRD_READER_BASE_URL`, `THIRD_READER_API_KEY` and `THIRD_READER_MODEL` set, a GPU and CPU disagreement also triggers one extra reading, stored in the extraction run as `field_candidates.third_reading` (`status` OK with per-field `gpu`, `cpu`, `third` and `supports`, or UNAVAILABLE with `reason`). It is advice only: stored fields, rules, roles and payment are unchanged, and a failure does not stop the review. No schema change.
 
 ## Owner review limit (2026-10-31)
 

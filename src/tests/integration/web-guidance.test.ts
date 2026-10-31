@@ -11,6 +11,9 @@ test('every state names what is happening and the next step',()=>{
   assert.equal(guide({flags:['RECIPIENT_UNCERTAIN','AMBIGUOUS_MATCH','BANK_NOT_FOUND']}).category,'Missing details');
   assert.equal(guide({flags:['BANK_NOT_FOUND']}).category,'No bank match');
   assert.equal(guide({flags:['PARTIAL_PAYMENT']}).category,'Evidence problem');
+  assert.equal(guide({flags:['PARTIAL_PAYMENT'],partial_eligible:true}).category,'Short payment');
+  assert.equal(guide({payment_state:'PARTIALLY_PAID',current:false,receipt_counted:true}).category,'Part paid');
+  assert.equal(guide({payment_state:'MANUALLY_CONFIRMED'}).next,'Ask an Owner to release this order.');
   assert.equal(guide({eligible:true,flags:['HIGH_VALUE']}).next,'Request Owner review.');
   assert.equal(guide({eligible:true,pending_approval:true}).category,'Waiting for the Owner');
   assert.equal(guide({eligible:true,pending_approval:true,role:'OWNER'}).category,'Owner decision');

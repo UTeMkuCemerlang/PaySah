@@ -150,3 +150,4 @@ html[data-no-blur] .notice[aria-label="Shop settings"]{backdrop-filter:none;-web
 @media(max-width:900px){.correction-compare{grid-template-columns:minmax(0,1fr)}}
 .field-with-was{display:flex;flex-direction:column;gap:5px;min-width:0}.field-with-was.span-2{grid-column:span 2}
 .receipt-picker+.intake-links,.intake-links{margin:0 0 16px;padding-bottom:16px;border-bottom:1px solid var(--line)}.intake-links h3{margin:0 0 4px}.intake-links .heading-actions{margin-top:10px;flex-wrap:wrap}
+.third-reading dl{display:grid;gap:8px;margin:8px 0}.third-reading dt{font-weight:600}.third-reading dd{margin:0}.third-reading p{margin:0}

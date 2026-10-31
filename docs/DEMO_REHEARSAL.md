@@ -9,7 +9,25 @@ A script for rehearsing the main route, the rejection route and the second shop.
 - The RM780 receipt and its bank credit are shared with DEMO-A-780 and can be used once. As the Owner, open **Activity** and use **Reset demo data** first, then again after the rehearsal. Reset deletes that shop's history, so save any proof first.
 - Keep the Cashier and Owner in two windows if you want to show the Activity update live.
 
-## Route 1: rejection, then approval
+## Main demo: one owner working alone
+
+Use only the Demo A Owner account. `npx tsx scripts/smoke-owner-only.ts` (from `src/`, after a build, with a dedicated local `TEST_DATABASE_URL`) walks these steps on a disposable local schema.
+
+| # | Do this | You should see |
+| --- | --- | --- |
+| 1 | New order, RM128. Attach **Normal · RM 128**, **Run checks** | "Ready to confirm" |
+| 2 | Tick the bank credit box, **Confirm payment**, then **Release order** | "Waiting for release", then "Complete" |
+| 3 | New order, RM780. Attach **High value · RM 780**, **Run checks**, **Request Owner review** | "Owner decision" and the decision summary |
+| 4 | Enter a reason, **Reject receipt review** | "Rejected", with the reason; order stays Unpaid |
+| 5 | **Run checks**, **Request Owner review**, enter a reason, tick the box, **Approve & confirm payment**, **Release order** | "Complete" |
+| 6 | New order, RM128. Attach **No matching bank credit**, **Run checks** | "No bank match"; no way to confirm payment |
+| 7 | **View order record** on the RM780 order, then **Shop settings** | The plain record, and the review limit the owner sets |
+
+Steps 1 and 6 use receipts and credits that are shared with other demo orders, so a repeat run needs **Reset demo data**. On a shared or live deployment, expect "already been used" otherwise.
+
+One owner still confirms every payment by hand. PaySah does not confirm any payment by itself. Above the limit, the owner sends the case to review and then decides, so the words "Request Owner review" appear even when they are the only person in the shop.
+
+## Backup: a shop with staff, rejection then approval
 
 | # | Who | Do this | You should see |
 | --- | --- | --- | --- |

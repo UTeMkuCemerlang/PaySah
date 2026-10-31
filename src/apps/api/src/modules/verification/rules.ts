@@ -1,9 +1,10 @@
 import type { ReceiptFields, VerificationOutcome } from '../../../../../packages/contracts/src/index.js';
 
-export const RULE_VERSION = 'rules.v2-tenant-policy';
+export const RULE_VERSION = 'rules.v4-part-payment';
 export type BankRow = { id: string; account_identifier: string; active: boolean; version: number; bank_transaction_ref: string; amount_sen: number; currency: string; direction: string; status: string; booked_at: string | Date; allocated: boolean };
 // model_unconfirmed: GPU vision fields that the independent CPU reading did not reproduce (the model may have guessed).
-export type RuleInput = { total_sen: number; fields: ReceiptFields; accounts: string[]; transactions: BankRow[]; duplicate_evidence: boolean; duplicate_image?:boolean; duplicate_reference: boolean; manual: boolean; model_unconfirmed?: boolean; owner_review_threshold_sen?:number;policy_version?:number };
+// model_unsure: the vision model itself named fields it was not sure of. Both raise the role to Owner and never clear a blocker.
+export type RuleInput = { total_sen: number; fields: ReceiptFields; accounts: string[]; transactions: BankRow[]; duplicate_evidence: boolean; duplicate_image?:boolean; duplicate_reference: boolean; manual: boolean; model_unconfirmed?: boolean; model_unsure?: boolean; paid_sen?: number; owner_review_threshold_sen?:number;policy_version?:number };
 export function verify(input: RuleInput) {
   const { fields: f } = input;
   const flags: string[] = [];
@@ -19,10 +20,12 @@ export function verify(input: RuleInput) {
   if (input.duplicate_reference) flags.push('DUPLICATE_REFERENCE');
   if (input.manual) flags.push('MANUAL_FIELDS');
   if (input.model_unconfirmed) flags.push('MODEL_UNCONFIRMED');
+  if (input.model_unsure) flags.push('MODEL_UNSURE');
   const threshold=input.owner_review_threshold_sen??50000;
   if (input.total_sen > threshold || (f.amount_sen ?? 0) > threshold) flags.push('HIGH_VALUE');
-  if (f.amount_sen !== null && f.amount_sen < input.total_sen) flags.push('PARTIAL_PAYMENT');
-  if (f.amount_sen !== null && f.amount_sen > input.total_sen) flags.push('OVERPAYMENT');
+  const due_sen=input.total_sen-(input.paid_sen??0);
+  if (f.amount_sen !== null && f.amount_sen < due_sen) flags.push('PARTIAL_PAYMENT');
+  if (f.amount_sen !== null && f.amount_sen > due_sen) flags.push('OVERPAYMENT');
   // Only the synthetic adapter's explicit bank_transaction_ref has compatible semantics.
   const related = input.transactions.filter(t => t.active && t.direction === 'CREDIT' && t.status === 'BOOKED' && t.currency === 'MYR' &&
     t.account_identifier === f.recipient_account && t.bank_transaction_ref === f.bank_transaction_ref &&
@@ -33,12 +36,14 @@ export function verify(input: RuleInput) {
   if (!related.length) flags.push('BANK_NOT_FOUND');
   if (candidates.length > 1) flags.push('AMBIGUOUS_MATCH');
   const reasons = [...new Set(flags)];
-  const blockers = reasons.filter(x => !['HIGH_VALUE','DUPLICATE_REFERENCE','MANUAL_FIELDS','MODEL_UNCONFIRMED'].includes(x));
+  const blockers = reasons.filter(x => !['HIGH_VALUE','DUPLICATE_REFERENCE','MANUAL_FIELDS','MODEL_UNCONFIRMED','MODEL_UNSURE'].includes(x));
   const eligible = candidates.length === 1 && blockers.length === 0;
+  // A real, unused bank credit that is only short of the amount due can be recorded as part payment.
+  const partial_eligible = candidates.length === 1 && blockers.length === 1 && blockers[0] === 'PARTIAL_PAYMENT';
   const required_role = reasons.length ? 'OWNER' : 'CASHIER';
   const outcome: VerificationOutcome = eligible ? (reasons.length ? 'NEEDS_REVIEW' : 'MATCHED') :
     reasons.some(x => ['MONEY_REQUEST','TRANSFER_NOT_COMPLETE','WRONG_RECIPIENT','INVALID_RECEIPT'].includes(x)) ? 'INVALID_EVIDENCE' :
     reasons.length === 1 && reasons[0] === 'BANK_NOT_FOUND' ? 'AWAITING_BANK' : 'NEEDS_REVIEW';
   return { outcome, flags: reasons, candidates: candidates.map(t => t.id), matched_transaction_id: eligible ? candidates[0].id : null,
-    eligible, required_role, evidence_source: 'SYNTHETIC_FEED' as const, rule_version: RULE_VERSION,policy_version:input.policy_version??1,owner_review_threshold_sen:threshold };
+    eligible, partial_eligible, partial_transaction_id: partial_eligible ? candidates[0].id : null, partial_amount_sen: partial_eligible ? f.amount_sen : null, due_sen, required_role, evidence_source: 'SYNTHETIC_FEED' as const, rule_version: RULE_VERSION,policy_version:input.policy_version??1,owner_review_threshold_sen:threshold };
 }

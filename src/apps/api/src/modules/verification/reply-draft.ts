@@ -5,7 +5,7 @@ import {evaluate} from './service.js';
 import {fingerprint} from './fixtures.js';
 import {RULE_VERSION} from './rules.js';
 
-type State='MISSING_EVIDENCE'|'CHECKING'|'BLOCKED'|'MATCHED'|'PAID'|'RELEASED';
+type State='MISSING_EVIDENCE'|'CHECKING'|'BLOCKED'|'MATCHED'|'PAID'|'RELEASED'|'PART_PAID'|'ACCEPTED';
 export async function replyDraft(pool:pg.Pool,actor:Actor,id:string,storage:ReceiptStorage){
  const db=await pool.connect();
  try{
@@ -14,6 +14,8 @@ export async function replyDraft(pool:pg.Pool,actor:Actor,id:string,storage:Rece
   if(!order)throw new ApiError(404,'NOT_FOUND','Order not found');
   let state:State='CHECKING';
   if(order.payment_state==='PAID')state=order.fulfillment_state==='RELEASED'?'RELEASED':'PAID';
+  else if(order.payment_state==='MANUALLY_CONFIRMED')state=order.fulfillment_state==='RELEASED'?'RELEASED':'ACCEPTED';
+  else if(order.payment_state==='PARTIALLY_PAID')state='PART_PAID';
   else if(order.payment_state!=='UNPAID')state='BLOCKED';
   else if(!order.current_receipt_id)state='MISSING_EVIDENCE';
   else{
@@ -30,13 +32,16 @@ export async function replyDraft(pool:pg.Pool,actor:Actor,id:string,storage:Rece
     }catch(error){if(!(error instanceof ApiError&&['IMAGE_UNAVAILABLE','EXTRACTION_NOT_READY'].includes(error.code)))throw error;}
    }
   }
-  const paid=`Payment of RM ${(order.total_sen/100).toFixed(2)} confirmed using demo bank evidence.`;
+  const accepted=order.payment_state==='MANUALLY_CONFIRMED';
+  const paid=accepted?`The shop has accepted your payment for order ${order.external_id}.`:`Payment of RM ${(order.total_sen/100).toFixed(2)} confirmed using demo bank evidence.`;
   const text:Record<State,string>={
    MISSING_EVIDENCE:`We have not received a payment receipt for order ${order.external_id} yet. Please send it through the link provided.`,
    CHECKING:'We received your receipt and are checking it against our records. This is not a payment confirmation yet.',
    BLOCKED:'We could not confirm this payment from the receipt provided. Please contact the shop for assistance.',
    MATCHED:'Your payment matches our records and is awaiting final confirmation.',
    PAID:paid,
+   PART_PAID:`We received part of your payment for order ${order.external_id}. The balance is still due. Please send the rest.`,
+   ACCEPTED:paid,
    RELEASED:`${paid} Your order has been released and is ready for collection.`
   };
   await db.query('COMMIT');return {text:text[state],state,source:'SYNTHETIC_DEMO' as const,sent:false as const};

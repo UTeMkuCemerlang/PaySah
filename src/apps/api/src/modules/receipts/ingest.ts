@@ -26,7 +26,7 @@ export async function ingestReceiptImage(c:Context,config:Config,storage:Receipt
     const order=(await c.db.query('SELECT * FROM orders WHERE tenant_id=$1 AND id=$2 FOR UPDATE',[c.actor.tenant_id,z.uuid().parse(id)])).rows[0];
     if(!order)throw new ApiError(404,'NOT_FOUND','Order not found');
     if(order.version!==expected)throw new ApiError(409,'STALE_VERSION','Order changed');
-    if(order.payment_state!=='UNPAID')throw new ApiError(409,'PAYMENT_STATE_CONFLICT','Order is not unpaid');
+    if(order.payment_state!=='UNPAID'&&order.payment_state!=='PARTIALLY_PAID')throw new ApiError(409,'PAYMENT_STATE_CONFLICT','Order is not awaiting payment');
     const {meta,sha,key}=image;
     const prior=await c.db.query('SELECT * FROM receipts WHERE tenant_id=$1 AND order_id=$2 AND image_sha256=$3',[c.actor.tenant_id,id,sha]);
     if(prior.rowCount)return {receipt:publicReceipt(prior.rows[0]),reused:true};

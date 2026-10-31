@@ -56,6 +56,8 @@ Mapping to the PDPA 2010 principles:
 | Data Integrity | Correction history keeps before and after fields; image hash check | Data quality procedure |
 | Access | Owner and Cashier roles | Data subject access and deletion procedure |
 
+An optional third reader (`THIRD_READER_*`, off unless all three variables are set) sends a disputed receipt image to an OpenAI-compatible provider when the GPU and CPU readings disagree. Its result is advice for the Owner and changes no field, rule or payment. Use synthetic receipts only.
+
 ## Scale
 
 Current implementation:

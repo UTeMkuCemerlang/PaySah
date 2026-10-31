@@ -14,7 +14,7 @@ await withFinalistEnvironment(async(base,pool)=>{
  await pool.query("INSERT INTO orders(id,tenant_id,external_id,total_sen) VALUES ($1,'10000000-0000-4000-8000-000000000001','REHEARSAL-780',78000)",[main]);
  const browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL??'chrome',headless:true});
  try{
-  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors:string[]=[];page.on('dialog',d=>void d.accept());page.on('pageerror',e=>errors.push(e.message));
   const site=base.replace('/api/v1',''),shot=(name:string)=>page.screenshot({path:resolve(report,`${name}.png`),fullPage:true,animations:'disabled'});
   const status=async(category:string)=>expect(page.getByTestId('status-now')).toContainText(category,{timeout:12000});
   async function signIn(account:string){await page.goto(site);await page.getByLabel('Demo account').selectOption(account);await page.getByRole('button',{name:'Open workspace'}).click();await expect(page.getByRole('heading',{name:'Orders',exact:true})).toBeVisible();}

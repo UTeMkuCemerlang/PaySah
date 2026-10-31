@@ -29,7 +29,7 @@ test('deployment launcher prepares an empty database when AUTO_MIGRATE=true, fro
     assert.ok(ready,'launcher did not become ready on an empty database');
     const scopedPool=new pg.Pool({connectionString:scoped.toString()});
     try{
-      assert.equal((await scopedPool.query("SELECT count(*)::int AS n FROM schema_migrations")).rows[0].n,7);
+      assert.equal((await scopedPool.query("SELECT count(*)::int AS n FROM schema_migrations")).rows[0].n,8);
       assert.equal((await scopedPool.query("SELECT count(*)::int AS n FROM users WHERE role IN ($role$OWNER$role$,$role$CASHIER$role$)")).rows[0].n,4);
     }finally{await scopedPool.end();}
   }finally{

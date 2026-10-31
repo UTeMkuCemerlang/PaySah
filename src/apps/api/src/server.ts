@@ -3,6 +3,7 @@ import {APP_STAGE} from '../../../packages/contracts/src/index.js';
 import { createApp } from './app.js';
 import { readConfig } from './config.js';
 import pg from 'pg';
+import {startEmbeddedMockPay} from './mock-pay-process.js';
 
 const parsed = (() => {
   try { return readConfig(process.env); }
@@ -14,9 +15,10 @@ const server = createApp(parsed, webRoot, pool).listen(parsed.PORT, parsed.HOST,
   console.log(`PaySah ${APP_STAGE}: http://${parsed.HOST}:${parsed.PORT} (demo / ${parsed.EXTRACTOR_MODE})`);
   process.send?.({type:'ready',role:'api'});
 });
+const mockPay=parsed.MOCK_PAY_PUBLIC_URL?startEmbeddedMockPay(parsed,parsed.PORT):undefined;
 let closing=false;
 function shutdown(){
-  if(closing)return;closing=true;
+  if(closing)return;closing=true;mockPay?.stop();
   server.close(async()=>{try{await pool?.end();process.exit(0);}catch{process.exit(1);}});
   setTimeout(()=>process.exit(1),5000).unref();
 }

@@ -5,12 +5,13 @@ import {imageHash,type ReceiptStorage} from './storage.js';
 import {CpuExtractor,OCR_ENGINE_VERSION,PREPROCESSING_VERSION} from './ocr.js';
 import {parseReceiptText,PARSER_VERSION} from './parser.js';
 import {emptyFields} from './fields.js';
+import {readThird} from './third-reader.js';
 import {RUNPOD_PARSER_VERSION,RunpodError,fieldDisagreements,type FallbackReason,type VisionExtractor} from './runpod.js';
 import type {ReceiptFields} from '../../../../../packages/contracts/src/index.js';
 
 export type TextExtractor={extract(bytes:Buffer,timeoutMs?:number):Promise<string|{text:string;preprocessed_sha256:string}>};
 // Receipt jobs are durable, with one extraction per worker process and lease recovery.
-export async function processReceiptJob(pool:pg.Pool,storage:ReceiptStorage,extractor:TextExtractor=new CpuExtractor(),vision?:VisionExtractor){
+export async function processReceiptJob(pool:pg.Pool,storage:ReceiptStorage,extractor:TextExtractor=new CpuExtractor(),vision?:VisionExtractor,third?:VisionExtractor){
   const candidate=(await pool.query("SELECT id,tenant_id FROM receipt_jobs WHERE status='PENDING' OR (status='RUNNING' AND lease_until<now()) ORDER BY created_at,id LIMIT 1")).rows[0];
   if(!candidate)return false;
   const client=await pool.connect();let job:any,receipt:any,actor:any;
@@ -20,7 +21,7 @@ export async function processReceiptJob(pool:pg.Pool,storage:ReceiptStorage,extr
     job=(await client.query("SELECT * FROM receipt_jobs WHERE tenant_id=$1 AND id=$2 AND (status='PENDING' OR (status='RUNNING' AND lease_until<now())) FOR UPDATE",[candidate.tenant_id,candidate.id])).rows[0];
     if(!job){await client.query('ROLLBACK');return false;}
     receipt=(await client.query('SELECT r.*,o.payment_state,o.current_receipt_id FROM receipts r JOIN orders o ON o.tenant_id=r.tenant_id AND o.id=r.order_id WHERE r.tenant_id=$1 AND r.id=$2',[job.tenant_id,job.receipt_id])).rows[0];
-    if(!receipt||receipt.revision!==job.expected_revision||receipt.payment_state!=='UNPAID'||receipt.current_receipt_id!==receipt.id){
+    if(!receipt||receipt.revision!==job.expected_revision||!['UNPAID','PARTIALLY_PAID'].includes(receipt.payment_state)||receipt.current_receipt_id!==receipt.id){
       await client.query("UPDATE receipt_jobs SET status='CANCELLED',lease_token=NULL,lease_until=NULL WHERE id=$1",[job.id]);await client.query('COMMIT');return true;
     }
     if(job.attempts>=2){
@@ -47,7 +48,9 @@ export async function processReceiptJob(pool:pg.Pool,storage:ReceiptStorage,extr
       // Independent CPU reading of the same bytes; differences are kept and send the receipt to Owner review.
       let cpuFields:ReceiptFields=emptyFields;
       try{const output=await extractor.extract(bytes);cpuFields=parseReceiptText(typeof output==='string'?output:output.text).fields;}catch{}
-      parsed={fields:result.fields,missing_fields:result.missing_fields,candidates:{model:result.model,cpu_fields:cpuFields,disagreements:fieldDisagreements(result.fields,cpuFields)}};
+      const disagreements=fieldDisagreements(result.fields,cpuFields);
+      const third_reading=await readThird(third,bytes,receipt.mime_type,result.fields,cpuFields,disagreements);
+      parsed={fields:result.fields,missing_fields:result.missing_fields,candidates:{model:result.model,cpu_fields:cpuFields,disagreements,uncertain_fields:result.uncertain_fields,...(third_reading?{third_reading}:{})}};
     }catch(e){fallback=e instanceof RunpodError?e.reason:'RUNPOD_UNAVAILABLE';}
   }
   if(bytes&&!parsed){
@@ -59,7 +62,7 @@ export async function processReceiptJob(pool:pg.Pool,storage:ReceiptStorage,extr
   const db=await pool.connect();
   try{
     await db.query('BEGIN');await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`m2:${job.tenant_id}`]);
-    const current=(await db.query("SELECT j.id FROM receipt_jobs j JOIN receipts r ON r.tenant_id=j.tenant_id AND r.id=j.receipt_id JOIN orders o ON o.tenant_id=r.tenant_id AND o.id=r.order_id WHERE j.tenant_id=$1 AND j.id=$2 AND j.status='RUNNING' AND j.lease_token=$3 AND j.lease_until>now() AND r.revision=j.expected_revision AND o.payment_state='UNPAID' AND o.current_receipt_id=r.id FOR UPDATE OF j,r,o",[job.tenant_id,job.id,job.lease_token])).rows[0];
+    const current=(await db.query("SELECT j.id FROM receipt_jobs j JOIN receipts r ON r.tenant_id=j.tenant_id AND r.id=j.receipt_id JOIN orders o ON o.tenant_id=r.tenant_id AND o.id=r.order_id WHERE j.tenant_id=$1 AND j.id=$2 AND j.status='RUNNING' AND j.lease_token=$3 AND j.lease_until>now() AND r.revision=j.expected_revision AND o.payment_state IN ('UNPAID','PARTIALLY_PAID') AND o.current_receipt_id=r.id FOR UPDATE OF j,r,o",[job.tenant_id,job.id,job.lease_token])).rows[0];
     if(!current){await db.query("UPDATE receipt_jobs SET status='CANCELLED',lease_token=NULL,lease_until=NULL WHERE id=$1 AND lease_token=$2",[job.id,job.lease_token]);await db.query('COMMIT');return true;}
     const context:Context={db,actor,correlation:randomUUID(),storage};
     await supersede(context,receipt.order_id);

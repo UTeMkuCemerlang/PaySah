@@ -48,6 +48,10 @@ When reading has failed, the page offers **Try reading again** (`POST /receipts/
 
 Requires `EXTRACTOR_MODE=runpod` and a live endpoint, which this script does not cover. If the CPU reading does not reproduce a GPU field, the check adds `MODEL_UNCONFIRMED`, which forces Owner review but does not block. No ready fixture forces a disagreement; the test uses a stubbed CPU reader.
 
+## Short payment
+
+A short receipt with a real, unused credit shows "Short payment". The Owner can **Record RM x as part payment**, then send another link on the same order, or send the case to review and reject it. If the Owner chooses to accept less, **Accept the difference** needs a reason and shows "Accepted by Owner", not Paid. With no bank credit, none of this is available.
+
 ## Automated coverage
 
 | Case | Test file |

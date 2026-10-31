@@ -39,10 +39,24 @@ const schema = z.object({
   RUNPOD_MODEL:z.string().min(1).max(200).default('Qwen/Qwen2.5-VL-7B-Instruct'),
   // With the 15 s model lookup and up to 30 s of CPU reading this stays inside the 180 s job lease.
   RUNPOD_TIMEOUT_MS:z.coerce.number().int().min(5000).max(80000).default(75000),
+  // Optional advisory reader for GPU and CPU disagreements. Short timeout keeps the job inside its lease.
+  THIRD_READER_BASE_URL:z.preprocess(v=>v===''?undefined:v,z.url({protocol:/^https$/}).optional()),
+  THIRD_READER_API_KEY:z.preprocess(v=>v===''?undefined:v,z.string().min(10).max(500).optional()),
+  THIRD_READER_MODEL:z.preprocess(v=>v===''?undefined:v,z.string().min(1).max(200).optional()),
+  // Optional payment simulator. Synthetic only; set all three or none.
+  MOCK_PAY_URL:z.preprocess(v=>v===''?undefined:v,z.url({protocol:/^https?$/}).optional()),
+  // When set, the API runs the simulator itself and serves its pages at this address under /pay.
+  MOCK_PAY_PUBLIC_URL:z.preprocess(v=>v===''?undefined:v,z.url({protocol:/^https?$/}).optional()),
+  MOCK_PAY_API_KEY:z.preprocess(v=>v===''?undefined:v,z.string().min(8).max(200).optional()),
+  MOCK_PAY_WEBHOOK_SECRET:z.preprocess(v=>v===''?undefined:v,z.string().min(8).max(200).optional()),
+  THIRD_READER_TIMEOUT_MS:z.coerce.number().int().min(5000).max(30000).default(20000),
 }).superRefine((value,ctx)=>{
   if(value.TELEGRAM_ENABLED==='true'&&(!value.TELEGRAM_TENANT_ID||!value.TELEGRAM_BOT_TOKEN||!value.TELEGRAM_WEBHOOK_SECRET||!value.TELEGRAM_BOT_USERNAME||!value.INTAKE_HMAC_SECRET||(value.TELEGRAM_INTAKE_MODE==='allowlist'&&!value.TELEGRAM_ALLOWED_SENDERS)))ctx.addIssue({code:'custom',message:'Telegram needs explicit tenant, bot, secret, sender HMAC and an allowlist in allowlist mode'});
   if(value.GOOGLE_FORM_ENABLED==='true'&&(!value.GOOGLE_FORM_TENANT_ID||!value.GOOGLE_FORM_INGEST_KEY||!value.GOOGLE_FORM_PREFILL_URL))ctx.addIssue({code:'custom',message:'Google Form needs explicit tenant, key and prefilled URL'});
   if(value.STORAGE_DRIVER==='replit'&&!value.REPLIT_STORAGE_BUCKET_ID)ctx.addIssue({code:'custom',path:['REPLIT_STORAGE_BUCKET_ID'],message:'Explicit private bucket required'});
+  if(new Set([!!value.MOCK_PAY_URL,!!value.MOCK_PAY_API_KEY,!!value.MOCK_PAY_WEBHOOK_SECRET]).size>1)ctx.addIssue({code:'custom',path:['MOCK_PAY_URL'],message:'Mock payment needs URL, API key and webhook secret together'});
+  if(value.MOCK_PAY_PUBLIC_URL&&(!value.MOCK_PAY_URL||!new URL(value.MOCK_PAY_URL).port||!['127.0.0.1','localhost'].includes(new URL(value.MOCK_PAY_URL).hostname)))ctx.addIssue({code:'custom',path:['MOCK_PAY_URL'],message:'Embedded mock payment needs a local MOCK_PAY_URL with a port'});
+  if(new Set([!!value.THIRD_READER_BASE_URL,!!value.THIRD_READER_API_KEY,!!value.THIRD_READER_MODEL]).size>1)ctx.addIssue({code:'custom',path:['THIRD_READER_BASE_URL'],message:'Third reader needs base URL, API key and model together'});
   if(value.EXTRACTOR_MODE==='runpod'&&(!value.RUNPOD_API_KEY||!value.RUNPOD_ENDPOINT_ID))ctx.addIssue({code:'custom',path:['RUNPOD_API_KEY'],message:'runpod mode requires RUNPOD_API_KEY and RUNPOD_ENDPOINT_ID'});
 });
 export function readConfig(env: NodeJS.ProcessEnv) { return schema.parse(env); }

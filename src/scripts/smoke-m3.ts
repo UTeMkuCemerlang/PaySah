@@ -37,7 +37,7 @@ const ownerA='20000000-0000-4000-8000-000000000001',cashierA='20000000-0000-4000
 try{
   await admin.query(`CREATE SCHEMA "${schema}"`);pool=new pg.Pool({connectionString:databaseUrl.toString(),connectionTimeoutMillis:3000});await migrate(pool);await seed(pool);await start('43131','fixture');
   browser=await chromium.launch({channel:process.env.PLAYWRIGHT_CHANNEL??'chrome',headless:true});
-  const context=await browser.newContext({viewport:{width:1480,height:1040},permissions:['clipboard-read','clipboard-write']});page=await context.newPage();page.on('pageerror',e=>pageErrors.push(e.message));page.setDefaultTimeout(10000);
+  const context=await browser.newContext({viewport:{width:1480,height:1040},permissions:['clipboard-read','clipboard-write']});page=await context.newPage();page.on('dialog',d=>void d.accept());page.on('pageerror',e=>pageErrors.push(e.message));page.setDefaultTimeout(10000);
   await check('Cashier sign-in, synthetic shop isolation and exact penny input',async()=>{
     await page!.goto(base);await expect(page!).toHaveTitle('PaySah · Payment workspace');await page!.screenshot({path:resolve(reportDir,'login-desktop.png'),fullPage:true});await login(cashierA);
     await expect(page!.getByRole('link',{name:'DEMO-A-128',exact:true})).toBeVisible();await expect(page!.getByRole('link',{name:'DEMO-B-100',exact:true})).toHaveCount(0);
