@@ -112,7 +112,6 @@ export function OrderDetail({api,actor,id}:{api:ApiClient;actor:Actor;id:string}
     {resource.updatedAt&&<p className="fine-print">Last updated {time(resource.updatedAt)} MYT{resource.error?' · Connection interrupted; showing saved evidence.':''}</p>}<Notice error={resource.error??error}/>{message&&<div className="notice success" role="status">{message}</div>}
     {newEvidence&&<div className="notice success" role="status">New receipt received. Review the latest evidence before confirming payment.</div>}
     {editing&&editorReceipt&&data.receipts[0]?.id!==editorReceipt.id&&<div className="notice" role="status">New evidence received. Your correction draft is preserved; cancel editing to review the latest receipt.</div>}
-    <IntakeLinks api={api} id={id} version={o.version} unpaid={o.payment_state==='UNPAID'}/>
     <section className="workflow-guide" aria-label="Payment review progress">
       <ol>{['Add receipt','Check evidence','Confirm payment','Release order'].map((step,index)=><li key={step} className={workflowStep>index?'complete':workflowStep===index?'current':''} aria-current={workflowStep===index?'step':undefined}><span aria-hidden="true">{workflowStep>index?'✓':index+1}</span><strong>{step}</strong><span className="sr-only">{workflowStep>index?'Completed':workflowStep===index?'Current step':'Not completed'}</span></li>)}</ol>
       <p aria-live="polite" data-testid="status-now"><strong>{guide.category}</strong>{guide.title}</p>
@@ -123,6 +122,7 @@ export function OrderDetail({api,actor,id}:{api:ApiClient;actor:Actor;id:string}
       <section className="panel"><div className="panel-heading"><div><h2>Receipt evidence</h2><p className="muted">Original image and the fields it claims</p></div>{receipt&&<Badge value={receipt.extraction_state}/>}</div>
         {editable&&<div className="receipt-picker"><label>Synthetic receipt<select aria-label="Synthetic receipt" value={chosen} onChange={e=>{fixtureManual.current=true;setChosen(e.target.value);}} disabled={disabled||fixtures.loading}>{fixtures.value?.fixtures.map(f=><option value={f.id} key={f.id}>{f.label??fixtureLabels[f.id]??'Synthetic receipt'}</option>)}</select></label><button className="button secondary" onClick={attach} disabled={disabled||fixtures.loading||!!fixtures.error}>Attach synthetic receipt</button></div>}
         <Notice error={fixtures.error}/>
+        <IntakeLinks api={api} id={id} version={o.version} unpaid={o.payment_state==='UNPAID'}/>
         {data.receipts.length>1&&<label className="receipt-select">Attached receipt<select value={receipt?.id??''} onChange={e=>{setSelected(e.target.value);setEditing(false);}}>{data.receipts.map((r,index)=><option key={r.id} value={r.id}>Receipt {data.receipts.length-index} · {label(r.fields_provider)} · {time(r.created_at)}</option>)}</select></label>}
         {receipt?<>
           {editable&&<ol className="reading-steps" aria-label="Receipt progress">{['Received','Reading','Checking','Waiting for a person'].map((step,index)=><li key={step} className={readingStep>index?'complete':readingStep===index?'current':''} aria-current={readingStep===index?'step':undefined}>{step}</li>)}</ol>}
