@@ -16,9 +16,9 @@ Receipt verification for Malaysian small businesses: compare receipt details wit
 ## Links
 
 - [Live demo](https://paysah.replit.app/#orders)
-- [GitHub repository](https://github.com/UTeMkuCemerlang/PaySah)
-- [Public pitch video](https://youtu.be/4aPbn72CRjA)
-- [Slide deck](submission/PaySah-Town.pdf)
+- [GitHub repository](https://github.com/UTeMkuCemerlang/PaySah_Final)
+- [Phase 1 pitch video](https://youtu.be/4aPbn72CRjA)
+- [Phase 1 slide deck](submission/PaySah-Town.pdf)
 - [Submission files and remaining items](submission/README.md)
 
 ## Overview
@@ -75,7 +75,7 @@ LICENSE                      Apache License 2.0
 .gitignore                   Excludes credentials, build output and local records
 ```
 
-Submission documents: [preliminary proposal](submission/SDC2026_UTeMkuCemerlang_Preliminary.pdf), [technical tools declaration](submission/SDC2026_UTeMkuCemerlang_TechDeclaration_final.pdf), [Replit proof](submission/SDC2026_UTeMkuCemerlang_Replit_POU.pdf) and [RunPod proof](submission/SDC2026_UTeMkuCemerlang_Runpod_POU.pdf).
+Phase 1 submission documents (not updated Finalist reports): [preliminary proposal](submission/SDC2026_UTeMkuCemerlang_Preliminary.pdf), [technical tools declaration](submission/SDC2026_UTeMkuCemerlang_TechDeclaration_final.pdf), [Replit proof](submission/SDC2026_UTeMkuCemerlang_Replit_POU.pdf) and [RunPod proof](submission/SDC2026_UTeMkuCemerlang_Runpod_POU.pdf).
 
 ## Architecture
 
@@ -92,8 +92,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for components, trust boundarie
 Requirements: Node.js 24, npm and PostgreSQL 17 for the local helper. Run application commands from **src/**.
 
 ```powershell
-git clone https://github.com/UTeMkuCemerlang/PaySah.git
-cd PaySah/src
+git clone https://github.com/UTeMkuCemerlang/PaySah_Final.git
+cd PaySah_Final/src
 npm ci
 Copy-Item .env.example .env
 npm run db:local:start
@@ -132,7 +132,7 @@ The deployed endpoint/model identification is shown in the [RunPod proof PDF](su
 
 ## Current source
 
-The source includes the V4 interface, Owner-only demo reset, 180-second receipt-worker lease, English Telegram acknowledgements and their regression tests. See [demo operations](src/docs/DEMO_OPERATIONS.md). Reset deletes the selected demo shop's history; save proof first.
+The source includes the glass ribbon interface, Owner-only demo reset, 180-second receipt-worker lease, English Telegram acknowledgements and their regression tests. See [demo operations](src/docs/DEMO_OPERATIONS.md). Reset deletes the selected demo shop's history; save proof first.
 
 Telegram and Google Form intake each completed a real end-to-end test on 24 October 2026. These two runs used CPU fallback after GPU extraction timed out; they do not establish GPU success or replay reliability. Telegram accepts allowlisted team accounts only. Other accounts are ignored by design; reviewers can use the Google Form link generated on an order page instead.
 
@@ -148,7 +148,7 @@ Independent bank evidence is the main integration constraint, so the prototype u
 
 ## Submission Status and License
 
-The PaySah pitching video has been completed and is available through the link provided above. The repository includes the project proposal, technical tools declaration, pitch deck and platform proof documents.
+The repository includes the Phase 1 proposal, technical tools declaration, pitch deck, video link and platform proof documents. The Finalist report, updated declaration and flattened Finalist pitch PDF are still missing. Existing Phase 1 files are not substitutes; see the submission index for the outstanding items. The linked video's current public accessibility has not been rechecked in this review.
 
 The prototype demonstrates AI-assisted receipt extraction, rule-based payment verification, role-based approval, and receipt intake through Telegram and Google Forms. The demonstration uses synthetic receipts and bank records; it does not connect to a live bank or payment gateway.
 
@@ -156,7 +156,7 @@ Licensed under [Apache-2.0](LICENSE). Third-party packages retain their respecti
 
 ## Finalist implementation
 
-The finalist source adds versioned shop policies, an optional Laundry SME fixture, denied-action auditing, order-filtered incremental activity, five-second workspace refresh and draft protection, a proposed Orbyte mock, explicit bounded Telegram demo-link intake and build commit metadata. These source changes are separate from the existing live deployment; production migration and release still need verification. The PDFs linked above describe Phase 1 and are not rewritten Finalist reports.
+The finalist source adds versioned shop policies, an optional Laundry SME fixture, denied-action auditing, order-filtered incremental activity, five-second workspace refresh and draft protection, a proposed Orbyte mock, explicit bounded Telegram demo-link intake and build commit metadata. On 31 October 2026, the live health endpoint returned stage FINALIST and source commit afe07043a1d4349b9ff30dc0e678cfb8425aadba. The team supplied a Replit preflight screenshot with 11/11 checks passed for that build. Health does not check database readiness or prove the signed-in workflows; those were not independently retested in this documentation update. The PDFs linked above describe Phase 1 and are not rewritten Finalist reports.
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [API contract](docs/FINALIST_API.md)
@@ -166,6 +166,8 @@ The finalist source adds versioned shop policies, an optional Laundry SME fixtur
 - [Cost, privacy and scale notes](docs/COST_PRIVACY_SCALE.md)
 - [Measurement protocol and unfilled observation format](docs/FINALIST_MEASUREMENT.md)
 - [Local gate and fixture evidence](docs/evidence/README.md)
+
+PaySah_Final preserves the imported development commit history and subsequent merge commits; it was not replaced with a single source snapshot. Original development repository: [PaySah](https://github.com/UTeMkuCemerlang/PaySah). This provenance statement does not assert compliance with the judges' assessment of development history. Required collaborator access on the new repository remains to be verified.
 
 Check which source the live site runs by opening [/api/v1/health](https://paysah.replit.app/api/v1/health) and comparing `stage` and `commit` with this repository. Later documentation-only commits do not change the application source.
 
