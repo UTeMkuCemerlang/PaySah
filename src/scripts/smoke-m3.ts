@@ -117,7 +117,7 @@ try{
   await check('Real CPU mode polls reading state and displays actual OCR provenance',async()=>{
     await start('43132','cpu_ocr');await login(ownerA,'http://127.0.0.1:43132');await create('BROWSER-CPU');await attach('no_bank');await expect(page!.getByRole('status').filter({hasText:'Reading the receipt.'})).toBeVisible();await expect(page!.getByRole('button',{name:'Run checks',exact:true})).toBeDisabled();
     const worker=spawn(process.execPath,['--import','tsx',resolve('scripts/receipt-worker.ts'),'--once'],{env:{...env,EXTRACTOR_MODE:'cpu_ocr'},windowsHide:true,stdio:['ignore','ignore','ignore']});processes.push(worker);const timer=setTimeout(()=>worker.kill(),45000);const exit=await new Promise<number|null>((r,reject)=>{worker.once('exit',r);worker.once('error',reject);});clearTimeout(timer);assert.equal(exit,0);
-    await expect(page!.getByText('Read from the image using local CPU OCR.',{exact:true})).toBeVisible({timeout:15000});await expect(page!.getByTestId('receipt-amount')).toHaveText('RM 128.00',{timeout:20000});await checks();await expect(page!.getByText('This evidence does not show the order is fully paid.',{exact:false})).toBeVisible();await page!.screenshot({path:resolve(reportDir,'cpu-reading-desktop.png'),fullPage:true});
+    await expect(page!.getByText('Read by local CPU OCR.',{exact:true})).toBeVisible({timeout:15000});await expect(page!.getByTestId('receipt-amount')).toHaveText('RM 128.00',{timeout:20000});await checks();await expect(page!.getByText('This evidence does not show the order is fully paid.',{exact:false})).toBeVisible();await page!.screenshot({path:resolve(reportDir,'cpu-reading-desktop.png'),fullPage:true});
   });
   assert.deepEqual(pageErrors,[],'No unhandled browser page errors');
 }catch(e){

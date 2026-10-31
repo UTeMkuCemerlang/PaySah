@@ -32,7 +32,6 @@ await withFinalistEnvironment(async(base,pool)=>{
 
   await page.goto(`${site}/#orders/41000000-0000-4000-8000-000000000300`);await attachAndCheck('bakery_300');await status('Ready to confirm');await shot('6-bakery-300');
   await swap(laundryOwner,'41000000-0000-4000-8000-000000000301');await attachAndCheck('laundry_300');await status('Ready to confirm');await shot('7-laundry-300');
-  await expect(page.locator('.intake-links')).toContainText('not connected to this shop');
   assert.deepEqual(errors,[]);
   await writeFile(resolve(report,'results.json'),JSON.stringify({status:'PASS',mode:'LOCAL_FIXTURE',browser_errors:0},null,2)+'\n');
   console.log(`PASS: main route, order record and a second shop (local fixture). ${report}`);

@@ -15,7 +15,11 @@ export async function replyDraft(pool:pg.Pool,actor:Actor,id:string,storage:Rece
   let state:State='CHECKING';
   if(order.payment_state==='PAID')state=order.fulfillment_state==='RELEASED'?'RELEASED':'PAID';
   else if(order.payment_state==='MANUALLY_CONFIRMED')state=order.fulfillment_state==='RELEASED'?'RELEASED':'ACCEPTED';
-  else if(order.payment_state==='PARTIALLY_PAID')state='PART_PAID';
+  else if(order.payment_state==='PARTIALLY_PAID'){
+   // Once a new payment covers the balance, do not ask the customer for the rest again.
+   const covered=(await db.query("SELECT 1 FROM verifications WHERE tenant_id=$1 AND order_id=$2 AND active AND order_version=$3 AND (result->>'eligible')::boolean",[actor.tenant_id,id,order.version])).rowCount;
+   state=covered?'CHECKING':'PART_PAID';
+  }
   else if(order.payment_state!=='UNPAID')state='BLOCKED';
   else if(!order.current_receipt_id)state='MISSING_EVIDENCE';
   else{
