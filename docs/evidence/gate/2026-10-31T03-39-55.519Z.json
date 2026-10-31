@@ -1,0 +1,140 @@
+{
+  "run_id": "2026-10-31T03-39-55.519Z",
+  "mode": "LOCAL_FIXTURE",
+  "records": [
+    {
+      "action": "confirm",
+      "status": 403,
+      "code": "OWNER_APPROVAL_REQUIRED",
+      "correlation_id": "52664dd5-ee68-40f8-9f0d-f412f058c32a",
+      "payment": "UNPAID",
+      "fulfillment": "ON_HOLD",
+      "version": 1
+    },
+    {
+      "action": "release",
+      "status": 409,
+      "code": "RELEASE_BLOCKED",
+      "correlation_id": "d1a40914-ef28-4143-924b-e899ea43daa5",
+      "payment": "UNPAID",
+      "fulfillment": "ON_HOLD",
+      "version": 1
+    },
+    {
+      "action": "decision",
+      "status": 403,
+      "code": "FORBIDDEN",
+      "correlation_id": "9af29cbb-bf01-4f86-8973-56cce082c2cb",
+      "payment": "UNPAID",
+      "fulfillment": "ON_HOLD",
+      "version": 1
+    },
+    {
+      "action": "approve",
+      "status": 200,
+      "payment": "PAID",
+      "fulfillment": "ON_HOLD",
+      "version": 2
+    },
+    {
+      "action": "release",
+      "status": 200,
+      "fulfillment": "RELEASED",
+      "version": 3
+    }
+  ],
+  "events": [
+    {
+      "action": "fulfillment.released",
+      "seq": "9",
+      "payload": {
+        "after": "RELEASED",
+        "before": "ON_HOLD",
+        "version": 3
+      }
+    },
+    {
+      "action": "payment.confirmed",
+      "seq": "8",
+      "payload": {
+        "after": "PAID",
+        "before": "UNPAID",
+        "source": "SYNTHETIC_FEED",
+        "version": 2,
+        "verification_id": "f3d4503f-af62-474c-9de3-6ce5f362058b"
+      }
+    },
+    {
+      "action": "approval.decided",
+      "seq": "7",
+      "payload": {
+        "reason": "Verified synthetic independent credit",
+        "decision": "APPROVED"
+      }
+    },
+    {
+      "action": "access.denied",
+      "seq": "6",
+      "payload": {
+        "code": "FORBIDDEN",
+        "role": "CASHIER",
+        "route": "approvals.decision"
+      }
+    },
+    {
+      "action": "access.denied",
+      "seq": "5",
+      "payload": {
+        "code": "OWNER_APPROVAL_REQUIRED",
+        "role": "CASHIER",
+        "route": "verifications.confirm"
+      }
+    },
+    {
+      "action": "approval.requested",
+      "seq": "4",
+      "payload": {
+        "verification_id": "f3d4503f-af62-474c-9de3-6ce5f362058b"
+      }
+    },
+    {
+      "action": "verification.completed",
+      "seq": "3",
+      "payload": {
+        "flags": [
+          "HIGH_VALUE"
+        ],
+        "outcome": "NEEDS_REVIEW",
+        "eligible": true,
+        "candidates": [
+          "60000000-0000-4000-8000-000000000002"
+        ],
+        "rule_version": "rules.v2-tenant-policy",
+        "required_role": "OWNER",
+        "policy_version": 1,
+        "evidence_source": "SYNTHETIC_FEED",
+        "matched_transaction_id": "60000000-0000-4000-8000-000000000002",
+        "owner_review_threshold_sen": 50000
+      }
+    },
+    {
+      "action": "receipt.created",
+      "seq": "2",
+      "payload": {
+        "source": "FIXTURE",
+        "revision": 1,
+        "fingerprint_kind": "STRUCTURED_FIELDS"
+      }
+    },
+    {
+      "action": "order.created",
+      "seq": "1",
+      "payload": {
+        "version": 1,
+        "total_sen": 78000
+      }
+    }
+  ],
+  "replay_verified": true,
+  "cross_tenant_verified": true
+}

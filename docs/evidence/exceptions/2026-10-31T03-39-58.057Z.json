@@ -1,0 +1,161 @@
+{
+  "run_id": "2026-10-31T03-39-58.057Z",
+  "mode": "LOCAL_FIXTURE",
+  "records": [
+    {
+      "case": "partial_payment",
+      "fixture_id": "partial",
+      "total_sen": 12800,
+      "flags": [
+        "PARTIAL_PAYMENT"
+      ],
+      "outcome": "NEEDS_REVIEW",
+      "owner_confirm_status": 409,
+      "owner_confirm_code": "EVIDENCE_BLOCKED",
+      "payment": "UNPAID",
+      "fulfillment": "ON_HOLD"
+    },
+    {
+      "case": "overpayment",
+      "fixture_id": "normal",
+      "total_sen": 10000,
+      "flags": [
+        "OVERPAYMENT"
+      ],
+      "outcome": "NEEDS_REVIEW",
+      "owner_confirm_status": 409,
+      "owner_confirm_code": "EVIDENCE_BLOCKED",
+      "payment": "UNPAID",
+      "fulfillment": "ON_HOLD"
+    },
+    {
+      "case": "wrong_recipient",
+      "fixture_id": "wrong_account",
+      "total_sen": 12800,
+      "flags": [
+        "WRONG_RECIPIENT",
+        "BANK_NOT_FOUND"
+      ],
+      "outcome": "INVALID_EVIDENCE",
+      "owner_confirm_status": 409,
+      "owner_confirm_code": "EVIDENCE_BLOCKED",
+      "payment": "UNPAID",
+      "fulfillment": "ON_HOLD"
+    },
+    {
+      "case": "scheduled_transfer",
+      "fixture_id": "scheduled",
+      "total_sen": 12800,
+      "flags": [
+        "TRANSFER_NOT_COMPLETE",
+        "DUPLICATE_REFERENCE"
+      ],
+      "outcome": "INVALID_EVIDENCE",
+      "owner_confirm_status": 409,
+      "owner_confirm_code": "EVIDENCE_BLOCKED",
+      "payment": "UNPAID",
+      "fulfillment": "ON_HOLD"
+    },
+    {
+      "case": "no_bank_credit",
+      "fixture_id": "no_bank",
+      "total_sen": 12800,
+      "flags": [
+        "BANK_NOT_FOUND"
+      ],
+      "outcome": "AWAITING_BANK",
+      "owner_confirm_status": 409,
+      "owner_confirm_code": "EVIDENCE_BLOCKED",
+      "payment": "UNPAID",
+      "fulfillment": "ON_HOLD"
+    },
+    {
+      "case": "money_request",
+      "fixture_id": "money_request",
+      "total_sen": 12800,
+      "flags": [
+        "MONEY_REQUEST",
+        "DUPLICATE_REFERENCE"
+      ],
+      "outcome": "INVALID_EVIDENCE",
+      "owner_confirm_status": 409,
+      "owner_confirm_code": "EVIDENCE_BLOCKED",
+      "payment": "UNPAID",
+      "fulfillment": "ON_HOLD"
+    },
+    {
+      "case": "duplicate_receipt",
+      "flags": [
+        "DUPLICATE_EVIDENCE",
+        "DUPLICATE_REFERENCE"
+      ],
+      "outcome": "NEEDS_REVIEW",
+      "first_receipt_attached": true,
+      "payment": "UNPAID"
+    },
+    {
+      "case": "high_value_owner_reject",
+      "flags": [
+        "HIGH_VALUE"
+      ],
+      "required_role": "OWNER",
+      "cashier_confirm_status": 403,
+      "cashier_confirm_code": "OWNER_APPROVAL_REQUIRED",
+      "reject_status": 200,
+      "retry_old_approval_status": 409,
+      "retry_old_approval_code": "STALE_APPROVAL",
+      "payment": "UNPAID",
+      "activity": [
+        "approval.decided",
+        "approval.requested",
+        "access.denied",
+        "verification.completed",
+        "receipt.created",
+        "order.created"
+      ]
+    },
+    {
+      "case": "manual_correction_and_stale_approval",
+      "approval_requested": true,
+      "stale_approve_status": 409,
+      "stale_approve_code": "STALE_APPROVAL",
+      "flags_after": [
+        "DUPLICATE_EVIDENCE",
+        "DUPLICATE_REFERENCE",
+        "MANUAL_FIELDS"
+      ],
+      "required_role_after": "OWNER",
+      "payment": "UNPAID",
+      "activity": [
+        "verification.completed",
+        "receipt.corrected",
+        "approval.superseded",
+        "approval.requested",
+        "verification.completed",
+        "receipt.created",
+        "order.created"
+      ]
+    },
+    {
+      "case": "failed_read_then_correction",
+      "failed_read_simulated": true,
+      "verify_status": 409,
+      "verify_code": "EXTRACTION_NOT_READY",
+      "correction_status": 200,
+      "correction_code": null,
+      "verify_after_status": 201,
+      "flags_after": [
+        "DUPLICATE_REFERENCE",
+        "MANUAL_FIELDS"
+      ],
+      "required_role_after": "OWNER",
+      "payment": "UNPAID"
+    },
+    {
+      "case": "cross_shop",
+      "read_status": 404,
+      "write_status": 404
+    }
+  ],
+  "payments_confirmed_in_run": 0
+}

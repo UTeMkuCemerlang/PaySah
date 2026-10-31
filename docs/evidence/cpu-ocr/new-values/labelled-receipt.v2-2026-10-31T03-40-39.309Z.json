@@ -1,0 +1,100 @@
+{
+  "run_id": "2026-10-31T03-40-39.309Z",
+  "parser": "labelled-receipt.v2",
+  "kind": "CPU OCR, synthetic receipts with new values and the same three layouts; rule check only, no approval or release executed",
+  "summary": {
+    "samples": 81,
+    "correct_fields": 483,
+    "total_fields": 567,
+    "expected_valid": 36,
+    "expected_blocked": 45,
+    "valid_but_blocked": 24,
+    "false_eligible": 0,
+    "eligible_with_field_errors": 0
+  },
+  "by_condition": {
+    "clear": {
+      "samples": 9,
+      "correct_fields": 60,
+      "total_fields": 63,
+      "expected_valid": 9,
+      "expected_blocked": 0,
+      "valid_but_blocked": 3,
+      "false_eligible": 0,
+      "eligible_with_field_errors": 0
+    },
+    "blur": {
+      "samples": 9,
+      "correct_fields": 60,
+      "total_fields": 63,
+      "expected_valid": 9,
+      "expected_blocked": 0,
+      "valid_but_blocked": 3,
+      "false_eligible": 0,
+      "eligible_with_field_errors": 0
+    },
+    "rotation": {
+      "samples": 9,
+      "correct_fields": 47,
+      "total_fields": 63,
+      "expected_valid": 9,
+      "expected_blocked": 0,
+      "valid_but_blocked": 9,
+      "false_eligible": 0,
+      "eligible_with_field_errors": 0
+    },
+    "low_resolution": {
+      "samples": 9,
+      "correct_fields": 16,
+      "total_fields": 63,
+      "expected_valid": 9,
+      "expected_blocked": 0,
+      "valid_but_blocked": 9,
+      "false_eligible": 0,
+      "eligible_with_field_errors": 0
+    },
+    "should_block": {
+      "samples": 45,
+      "correct_fields": 300,
+      "total_fields": 315,
+      "expected_valid": 0,
+      "expected_blocked": 45,
+      "valid_but_blocked": 0,
+      "false_eligible": 0,
+      "eligible_with_field_errors": 0
+    }
+  },
+  "by_layout": {
+    "ledger": {
+      "samples": 27,
+      "correct_fields": 165,
+      "total_fields": 189,
+      "expected_valid": 12,
+      "expected_blocked": 15,
+      "valid_but_blocked": 8,
+      "false_eligible": 0,
+      "eligible_with_field_errors": 0
+    },
+    "portrait": {
+      "samples": 27,
+      "correct_fields": 163,
+      "total_fields": 189,
+      "expected_valid": 12,
+      "expected_blocked": 15,
+      "valid_but_blocked": 9,
+      "false_eligible": 0,
+      "eligible_with_field_errors": 0
+    },
+    "compact": {
+      "samples": 27,
+      "correct_fields": 155,
+      "total_fields": 189,
+      "expected_valid": 12,
+      "expected_blocked": 15,
+      "valid_but_blocked": 7,
+      "false_eligible": 0,
+      "eligible_with_field_errors": 0
+    }
+  },
+  "source_commit": "1531bb633f1b63f3d54ffa8d0cdbdac25861fc1a"
+}
