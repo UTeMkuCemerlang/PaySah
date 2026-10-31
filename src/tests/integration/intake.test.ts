@@ -47,7 +47,7 @@ test('005 upgrades an existing four-migration database without rewriting history
   for(const file of ['001_demo.sql','002_verification.sql'])await copyFile(resolve('db/seeds',file),resolve(root,'db/seeds',file));
   await migrate(pool,root);await seed(pool,root);const before=(await pool.query('SELECT name,checksum FROM schema_migrations ORDER BY name')).rows;
   await migrate(pool);await seed(pool);
-  const after=(await pool.query('SELECT name,checksum FROM schema_migrations ORDER BY name')).rows;assert.deepEqual(after.slice(0,4),before);assert.equal(after.length,6);
+  const after=(await pool.query('SELECT name,checksum FROM schema_migrations ORDER BY name')).rows;assert.deepEqual(after.slice(0,4),before);assert.equal(after.length,7);
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM users WHERE role='SYSTEM'")).rows[0].n,2);
   assert.equal((await pool.query("SELECT count(*)::int AS n FROM orders WHERE payment_state='UNPAID'")).rows[0].n,6);
  }finally{await pool.end();await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);await admin.end();assert.ok(root.startsWith(resolve('.local')+sep));await rm(root,{recursive:true,force:true});}

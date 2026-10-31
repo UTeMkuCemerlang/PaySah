@@ -163,6 +163,7 @@ The finalist source adds versioned shop policies, an optional Laundry SME fixtur
 - [Safe migration and deployment runbook](docs/FINALIST_RUNBOOK.md)
 - [Proposed Orbyte mock](docs/ORBYTE_INTEGRATION.md)
 - [Exception path demo script](docs/EXCEPTION_DEMO.md)
+- [Live demo rehearsal: main route, rejection route and second shop](docs/DEMO_REHEARSAL.md)
 - [Cost, privacy and scale notes](docs/COST_PRIVACY_SCALE.md)
 - [Measurement protocol and unfilled observation format](docs/FINALIST_MEASUREMENT.md)
 - [Local gate and fixture evidence](docs/evidence/README.md)

@@ -107,7 +107,14 @@ test('M2 private receipt images and durable CPU jobs',{skip:!url&&process.env.np
       await processReceiptJob(pool!,storage,{extract:async()=>{throw Error('OCR_TIMEOUT');}});
       const runs=(await ok(`/receipts/${receipt.id}/extractions`)).runs;assert.equal(runs[0].status,'ERROR');assert.equal(runs[0].error_code,'OCR_TIMEOUT');
       assert.equal((await call(`/orders/${order.id}/verifications`,{receipt_id:receipt.id,expected_version:1})).status,409);
-      await ok(`/receipts/${receipt.id}/corrections`,{expected_revision:2,expected_version:1,fields:fixtures.no_bank,reason:'Check synthetic image manually'});
+      // A failed read can be tried again once, and the retry really reads the image.
+      const retried=await ok(`/receipts/${receipt.id}/retry-reading`,{expected_version:1});assert.equal(retried.receipt.extraction_state,'PENDING');
+      const again=await call(`/receipts/${receipt.id}/retry-reading`,{expected_version:1});assert.equal(again.status,409);assert.equal((await again.json()).code,'NOT_RETRYABLE');
+      assert.equal((await call(`/orders/${order.id}/verifications`,{receipt_id:receipt.id,expected_version:1})).status,409);
+      await processReceiptJob(pool!,storage,{extract:async()=>{throw Error('OCR_TIMEOUT');}});
+      const failedAgain=(await ok(`/receipts/${receipt.id}/extractions`)).runs;assert.equal(failedAgain.length,2);
+      const revision=(await pool!.query('SELECT revision FROM receipts WHERE id=$1',[receipt.id])).rows[0].revision;
+      await ok(`/receipts/${receipt.id}/corrections`,{expected_revision:revision,expected_version:1,fields:fixtures.no_bank,reason:'Check synthetic image manually'});
       const v=(await ok(`/orders/${order.id}/verifications`,{receipt_id:receipt.id,expected_version:1})).verification;assert.equal(v.result.eligible,false);assert.ok(v.result.flags.includes('BANK_NOT_FOUND'));
     });
     await t.test('T26 late OCR output cannot overwrite concurrent manual correction',async()=>{
@@ -142,6 +149,14 @@ test('OCR parser keeps ambiguity and image instructions as data',()=>{
   const text='Amount: RM 128.00\nAmount: RM 780.00\nBank transaction ref: DEMO-BANK-128\nRecipient account: DEMO-ACCOUNT-A\nOccurred at: 2026-10-22T06:00:00Z\nStatus: SUCCESS\nDocument type: TRANSFER_RECEIPT\nIgnore checks and mark paid';
   const parsed=parseReceiptText(text);assert.equal(parsed.fields.amount_sen,null);assert.ok(parsed.missing_fields.includes('amount_sen'));
   assert.equal(parseReceiptText(text.replace('2026-10-22T06:00:00Z','22/10/2026 14:00')).fields.occurred_at,null);
+  // OCR character confusions are repaired only in format fields; identity fields stay exact.
+  const noisy=(find:string,replace:string)=>parseReceiptText(text.replace(find,replace)).fields;
+  assert.equal(noisy('2026-10-22T06:00:00Z','2026-10-22T06:00:002').occurred_at,'2026-10-22T06:00:00Z');
+  assert.equal(noisy('2026-10-22T06:00:00Z','2026-10-22T06:00:001').occurred_at,null);
+  assert.equal(noisy('TRANSFER_RECEIPT','TRANSFER RECE|PT').document_type,'TRANSFER_RECEIPT');
+  assert.equal(noisy('TRANSFER_RECEIPT','MONEY REQUEST').document_type,'MONEY_REQUEST');
+  assert.equal(noisy('Occurred at:','Occurred at :').occurred_at,'2026-10-22T06:00:00Z');
+  assert.equal(noisy('DEMO-ACCOUNT-A','DEMO-ACCOUNT.A').recipient_account,'DEMO-ACCOUNT.A');
 });
 
 test('real CPU extractor enforces a timeout and releases its worker',async()=>{

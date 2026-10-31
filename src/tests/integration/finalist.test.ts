@@ -9,6 +9,34 @@ import {fixtures} from '../../apps/api/src/modules/verification/fixtures.js';
 import {demonstrateOrbyte} from '../../scripts/mock-orbyte.js';
 import {demonstrateExceptions} from '../../scripts/demo-exceptions.js';
 
+test('Owner sets the review limit: audited, versioned, Owner-only, restored by reset, never relaxes evidence',{skip:!process.env.TEST_DATABASE_URL},async()=>{
+ await withFinalistEnvironment(async base=>{
+  const call=async(path:string,token='',body?:unknown)=>{const response=await fetch(base+path,{method:body===undefined?'GET':'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','Idempotency-Key':crypto.randomUUID()},body:body===undefined?undefined:JSON.stringify(body)});return {status:response.status,body:await response.json()};};
+  const login=async(account_id:string)=>(await call('/demo/sessions','',{account_id})).body.token;
+  const owner=await login('20000000-0000-4000-8000-000000000001'),cashier=await login('20000000-0000-4000-8000-000000000002'),other=await login('20000000-0000-4000-8000-000000000003');
+  const check=async(fixture_id:string,total_sen:number)=>{const order=(await call('/orders',cashier,{external_id:crypto.randomUUID(),total_sen})).body.order,receipt=(await call(`/orders/${order.id}/receipts`,cashier,{source:'FIXTURE',fixture_id,expected_version:1})).body.receipt;return (await call(`/orders/${order.id}/verifications`,cashier,{receipt_id:receipt.id,expected_version:1})).body.verification;};
+  const limit=async(token:string)=>(await call('/tenant/settings',token)).body.settings;
+  const start=await limit(owner);assert.equal(start.owner_review_threshold_sen,50000);
+  const before=await check('normal',12800);assert.equal(before.result.required_role,'CASHIER');
+  const change={owner_review_threshold_sen:10000,expected_policy_version:start.policy_version,reason:'Lower limit for the demo'};
+  assert.equal((await call('/tenant/settings',cashier,change)).status,403);
+  assert.equal((await call('/tenant/settings',owner,{...change,owner_review_threshold_sen:100000001})).status,422);
+  assert.equal((await call('/tenant/settings',owner,{...change,reason:''})).status,422);
+  assert.equal((await limit(owner)).owner_review_threshold_sen,50000);
+  const saved=await call('/tenant/settings',owner,change);assert.equal(saved.status,200);assert.equal(saved.body.settings.owner_review_threshold_sen,10000);assert.equal(saved.body.settings.policy_version,start.policy_version+1);
+  const repeat=await call('/tenant/settings',owner,change);assert.equal(repeat.status,409);assert.equal(repeat.body.code,'STALE_POLICY');
+  assert.equal((await limit(other)).owner_review_threshold_sen,50000);
+  const stale=await call(`/verifications/${before.id}/confirm`,cashier,{expected_version:1});assert.equal(stale.status,409);assert.equal(stale.body.code,'STALE_APPROVAL');
+  const events=(await call('/activity?limit=50',owner)).body.events.filter((e:any)=>e.action==='policy.changed');assert.equal(events.length,1);assert.equal(events[0].payload.before_sen,50000);assert.equal(events[0].payload.after_sen,10000);assert.equal(events[0].payload.reason,'Lower limit for the demo');
+  assert.equal((await call('/activity?limit=50',other)).body.events.filter((e:any)=>e.action==='policy.changed').length,0);
+  const high=await limit(owner);
+  assert.equal((await call('/tenant/settings',owner,{owner_review_threshold_sen:100000000,expected_policy_version:high.policy_version,reason:'Highest allowed limit'})).status,200);
+  const blocked=await check('partial',12800);assert.equal(blocked.result.eligible,false);
+  assert.equal((await call('/demo/reset',owner,{})).status,200);
+  assert.equal((await limit(await login('20000000-0000-4000-8000-000000000001'))).owner_review_threshold_sen,50000);
+ });
+});
+
 test('Finalist exception walkthrough keeps every blocked case unpaid',{skip:!process.env.TEST_DATABASE_URL},async()=>{
  await withFinalistEnvironment(demonstrateExceptions);
 });

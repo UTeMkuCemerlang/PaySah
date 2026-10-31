@@ -139,3 +139,13 @@ html[data-no-blur] .notice[aria-label="Shop settings"]{backdrop-filter:none;-web
 @media(max-width:1250px){.workspace-content:before{right:calc(4% + 150px)}}
 @media(max-width:1000px){.workspace:after{right:0;width:56%}.workspace-content:before{width:150px;height:94px;right:150px}}
 @media(max-width:740px){.app-header{border-radius:28px 28px 0 0;border-right:0;border-bottom:1px solid #eef0f6}.workspace{--hero-h:210px}.workspace:has(.orders-overview){--hero-h:560px}.workspace:has(.detail-heading){--hero-h:330px}.workspace:before{border-radius:0}.workspace:after{top:4px;right:-30px;width:78%;height:230px;opacity:.6;background-size:contain;background-position:right top;-webkit-mask:none;mask:none}.workspace-content:before{display:none}.login-intro:after{width:240px;height:180px;left:auto;right:-10px;bottom:-30px}}
+
+/* Status guidance, correction comparison, Owner summary and order record */
+.workflow-guide p+p{margin-top:-6px}
+.reading-steps{display:flex;flex-wrap:wrap;gap:6px 18px;list-style:none;padding:0;margin:0 0 12px;font-size:12px;color:#777582}.reading-steps li{position:relative;padding-left:14px}.reading-steps li:before{content:"";position:absolute;left:0;top:.45em;width:8px;height:8px;border-radius:50%;border:1px solid #a99abb}.reading-steps li.complete:before{background:#a99abb}.reading-steps li.current{color:#302642;font-weight:600}.reading-steps li.current:before{background:#6d4ae0;border-color:#6d4ae0}
+.correction-compare{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:18px;align-items:start}.correction-compare .receipt-preview img{width:100%;height:auto}.field-help.field-changed{color:#6d4ae0;font-weight:600}
+.decision-summary{margin:0 0 14px;display:grid;gap:8px}.decision-summary>div{display:grid;gap:2px}.decision-summary dt{font-size:12px;color:#777582}.decision-summary dd{margin:0;font-weight:550}.decision-summary dd span{display:block;font-weight:450}
+.order-story{display:flex;flex-wrap:wrap;gap:6px 0;list-style:none;padding:0;margin:0 0 18px;font-weight:550}.order-story li:not(:last-child):after{content:"→";margin:0 8px;color:#777582;font-weight:400}
+.notice .button{display:block;margin-top:8px}
+@media(max-width:900px){.correction-compare{grid-template-columns:minmax(0,1fr)}}
+.field-with-was{display:flex;flex-direction:column;gap:5px;min-width:0}.field-with-was.span-2{grid-column:span 2}

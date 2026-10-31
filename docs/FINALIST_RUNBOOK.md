@@ -23,6 +23,8 @@ Optional Laundry C data is in `fixtures/finalist/laundry.sql`. It is applied by 
 
 ## Migration and production release
 
+Releases after `afe0704` add `007_policy_audit.sql`, which only allows policy changes in the activity log. Apply it with the same steps below. The application still runs without it, but Shop settings cannot save until it is applied.
+
 1. Record release SHA, current production/development database identities, old migration checksums and backup/recovery availability without exposing credentials.
 2. Review `006_tenant_settings.sql`: new policy table and default RM500 policies for existing tenants. It does not create Laundry C. Existing 001–005 SQL bytes must stay unchanged.
 3. Keep `AUTO_MIGRATE=false`; startup with true runs both migration and seed. After target verification and authorization, run **only** the project `db:migrate` for development and production, using each correct connection separately. Do not assume the normal Shell URL targets production. Verify migration records and checksums afterward.

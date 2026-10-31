@@ -42,7 +42,7 @@ Notes on the table: the order version at creation is 1. A fixture already used b
 
 ## OCR or model failure, manual correction
 
-No ready fixture produces an OCR failure; the local walkthrough simulates one by setting the receipt to `ERROR` in its disposable schema, which is not possible on a live deployment. On a live deployment: upload a synthetic image through the order receipt upload, and if extraction is `PENDING`, `RUNNING` or `ERROR`, verification returns 409 `EXTRACTION_NOT_READY`. Then submit `POST /receipts/:id/corrections` with `expected_revision`, `expected_version`, corrected fields and a reason (3+ characters). Activity shows `receipt.corrected` with before and after fields. Verify again: the check carries `MANUAL_FIELDS`, so an Owner is required. Extraction events appear as `receipt.extracted` with `provider` and `fallback_reason`.
+When reading has failed, the page offers **Try reading again** (`POST /receipts/:id/retry-reading`), which works only in that state. No ready fixture produces an OCR failure; the local walkthrough simulates one by setting the receipt to `ERROR` in its disposable schema, which is not possible on a live deployment. On a live deployment: upload a synthetic image through the order receipt upload, and if extraction is `PENDING`, `RUNNING` or `ERROR`, verification returns 409 `EXTRACTION_NOT_READY`. Then submit `POST /receipts/:id/corrections` with `expected_revision`, `expected_version`, corrected fields and a reason (3+ characters). Activity shows `receipt.corrected` with before and after fields. Verify again: the check carries `MANUAL_FIELDS`, so an Owner is required. Extraction events appear as `receipt.extracted` with `provider` and `fallback_reason`.
 
 ## GPU and CPU disagreement
 

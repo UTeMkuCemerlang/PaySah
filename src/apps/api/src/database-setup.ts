@@ -66,6 +66,8 @@ export async function resetDemoTenant(pool: pg.Pool, tenantId: string, root = pr
     }
     if(tenantId==='10000000-0000-4000-8000-000000000003')await client.query(await readFile(join(root,'fixtures/finalist/laundry.sql'),'utf8'));
     if(bakeryDemo)await client.query(await readFile(join(root,'fixtures/finalist/bakery.sql'),'utf8'));
+    // A reset also undoes any review limit changed during a demo, so the two-shop comparison stays repeatable.
+    await client.query(`UPDATE tenant_settings SET owner_review_threshold_sen=$2,policy_version=policy_version+1 WHERE tenant_id=$1 AND owner_review_threshold_sen<>$2`,[tenantId,tenantId==='10000000-0000-4000-8000-000000000003'?20000:50000]);
     const orders = (await client.query('SELECT count(*)::int AS n FROM orders WHERE tenant_id=$1', [tenantId])).rows[0].n as number;
     await client.query('COMMIT');
     return { orders };

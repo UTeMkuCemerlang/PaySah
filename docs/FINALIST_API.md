@@ -26,6 +26,14 @@ Verification `result` now includes `policy_version` and `owner_review_threshold_
 
 Readiness now requires migration 006 and its exact checksum. Health also returns `commit`, build-time clean source Git SHA or `unknown`. This is additive; existing session/write/version/idempotency responses are retained.
 
+## Owner review limit (2026-10-31)
+
+`POST /api/v1/tenant/settings` with `{owner_review_threshold_sen,expected_policy_version,reason}` and an `Idempotency-Key` changes the session shop's Owner review limit. Owner only (403 otherwise); 0 to RM 1,000,000 in integer sen (422 otherwise); a stale version returns 409 `STALE_POLICY`. It increments `policy_version`, so earlier checks and open approvals become `STALE_APPROVAL` and existing payments are unchanged. It records `policy.changed` with before, after and reason. The release limit is separate and not changed here. An Owner demo reset restores the shop's default limit. Eligibility rules are unaffected: missing or invalid bank evidence stays blocked at any limit. The route needs migration `007_policy_audit.sql`; without it the route returns 503 `POLICY_CHANGE_UNAVAILABLE` and the rest of the application keeps working, so readiness does not require 007.
+
+## Reading retry (2026-10-31)
+
+`POST /api/v1/receipts/:id/retry-reading` with `{expected_version}` and an `Idempotency-Key` queues a failed reading again. It requires an unpaid order, the current receipt and `extraction_state=ERROR`; otherwise it returns 409 (`NOT_RETRYABLE`, `STALE_RECEIPT`, or the existing version and payment errors). It writes `receipt.retry_requested` and changes no schema. The parser is `labelled-receipt.v2`: it repairs known OCR confusions in format fields only (space before a label colon, a trailing `2` or `7` read for `Z` in a timestamp, spaces or `|` in the document type). References, accounts and amounts stay exact. The verification rules are unchanged.
+
 ## Live review fixes (2026-10-30)
 
 Health and readiness use the shared `APP_STAGE = FINALIST`. Build identity resolves a valid explicit `PAYSAH_BUILD_COMMIT`, then clean Git HEAD, then an archive `.build-commit` only when Git metadata is unavailable. A dirty or unverifiable Git checkout remains `unknown` without an explicit override; a stale archive marker cannot make it look clean. Invalid explicit values fail closed to `unknown`. Build metadata records and logs its source (`env`, `git`, `file`, `unknown`). Explicit injection is the deployer's assertion about verified source, not a remote-main lookup.

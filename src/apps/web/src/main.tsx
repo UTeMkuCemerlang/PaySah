@@ -2,7 +2,7 @@ import React,{lazy,Suspense,useEffect,useMemo,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {ApiClient,errorMessage} from './api.js';
 import {useResource} from './hooks.js';
-import {Login,Orders,NewOrder,Approvals,Activity} from './pages.js';
+import {Login,Orders,NewOrder,Approvals,Activity,ShopSettings} from './pages.js';
 import {OrderDetail} from './review.js';
 import {text} from './copy.js';
 import type {Actor,Session,Health} from './types.js';
@@ -46,11 +46,11 @@ function Workspace({api,actor,health,logout}:{api:ApiClient;actor:Actor;health?:
   return <div className="app-shell">
     <a className="skip-link" href="#workspace-content" onClick={e=>{e.preventDefault();document.getElementById('workspace-content')?.focus();}}>Skip to content</a>
     <header className="app-header"><a className="brand" href="#orders"><span className="brand-symbol" aria-hidden="true">p</span>PaySah</a>
-      <nav className="main-nav" aria-label="Main navigation">{[['orders',text.orders],...(actor.role==='OWNER'?[['approvals',text.approvals]]:[]),['activity',text.activity]].map(([key,name],index)=><a key={key} className={active===key?'active':''} aria-current={active===key?'page':undefined} href={`#${key}`}><span aria-hidden="true">{['▤','◇','◷'][index]}</span>{name}</a>)}</nav><a className="story-entry" href="#story">The PaySah story <span aria-hidden="true">↗</span></a>
+      <nav className="main-nav" aria-label="Main navigation">{[['orders',text.orders],...(actor.role==='OWNER'?[['approvals',text.approvals]]:[]),['activity',text.activity],...(actor.role==='OWNER'?[['settings',text.settings]]:[])].map(([key,name],index)=><a key={key} className={active===key?'active':''} aria-current={active===key?'page':undefined} href={`#${key}`}><span aria-hidden="true">{['▤','◇','◷'][index]}</span>{name}</a>)}</nav><a className="story-entry" href="#story">The PaySah story <span aria-hidden="true">↗</span></a>
       <div className="account-menu"><div><strong>{actor.display_name}</strong><span>{actor.role==='OWNER'?'Owner':'Cashier'}</span></div><button className="button ghost small" disabled={leaving} onClick={async()=>{setLeaving(true);await logout();setLeaving(false);}}>{leaving?'Signing out…':text.switchAccount}</button><span className="account-avatar" aria-hidden="true">{actor.role==='OWNER'?'O':'C'}</span></div>
     </header>
     <div className="workspace"><div className="workspace-meta"><span className="demo-pill">Synthetic demo</span><span className="mode-label"><span className={`mode-dot ${health?'available':'unknown'}`} aria-hidden="true"/>{mode}</span><span className="workspace-region">MYR · Malaysia</span></div>
-      <main className="workspace-content" id="workspace-content" tabIndex={-1}>{orderId?<OrderDetail key={orderId} api={api} actor={actor} id={orderId}/>:route==='orders/new'?<NewOrder api={api}/>:route==='approvals'?<Approvals api={api} actor={actor}/>:route==='activity'?<Activity api={api} actor={actor}/>:<Orders api={api}/>}</main>
+      <main className="workspace-content" id="workspace-content" tabIndex={-1}>{orderId?<OrderDetail key={orderId} api={api} actor={actor} id={orderId}/>:route==='orders/new'?<NewOrder api={api}/>:route==='approvals'?<Approvals api={api} actor={actor}/>:route==='settings'?<ShopSettings api={api} actor={actor}/>:route==='activity'?<Activity api={api} actor={actor}/>:<Orders api={api}/>}</main>
       <footer className="workspace-footer">Synthetic information only · No real payments · Times in MYT</footer>
     </div>
   </div>;

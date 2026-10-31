@@ -18,6 +18,7 @@ import {imageHash,type ReceiptStorage} from '../receipts/storage.js';
 import {orderReview} from './review.js';
 
 const versionBody = z.object({ expected_version: versionSchema }).strict();
+const policyBody = z.object({ owner_review_threshold_sen: z.number().int().min(0).max(100000000), expected_policy_version: versionSchema, reason: z.string().trim().min(3).max(500) }).strict();
 const verificationBody = z.object({ receipt_id: z.uuid(), expected_version: versionSchema }).strict();
 const correctionBody = z.object({ expected_revision: versionSchema, expected_version: versionSchema, fields: receiptFieldsSchema, reason: z.string().trim().min(3).max(500) }).strict();
 const decisionBody = z.object({ decision: z.enum(['APPROVE','REJECT']), reason: z.string().trim().min(3).max(500), expected_version: versionSchema }).strict();
@@ -114,6 +115,28 @@ export function verificationRouter(pool: pg.Pool,config:Config,storage:ReceiptSt
     await one(pool, 'SELECT id FROM orders WHERE tenant_id=$1 AND id=$2', [res.locals.actor.tenant_id,orderId]);
     res.json({ receipts: (await pool.query('SELECT * FROM receipts WHERE tenant_id=$1 AND order_id=$2 ORDER BY created_at,id', [res.locals.actor.tenant_id,orderId])).rows.map(publicReceipt) });
   });
+  // Owner sets the shop's review limit. A new policy version makes earlier checks and pending approvals stale; existing payments stay paid.
+  router.post('/tenant/settings', write(policyBody, async (c, b) => {
+    owner(c.actor);
+    if(!(await c.db.query("SELECT 1 FROM schema_migrations WHERE name='007_policy_audit.sql'")).rowCount)throw new ApiError(503,'POLICY_CHANGE_UNAVAILABLE','Shop settings cannot be changed until the database is updated');
+    const before=await tenantPolicy(c.db,c.actor.tenant_id);
+    if(before.policy_version!==b.expected_policy_version)fail('STALE_POLICY','Shop settings changed. Reload and try again');
+    const row=(await c.db.query('UPDATE tenant_settings SET owner_review_threshold_sen=$2,policy_version=policy_version+1 WHERE tenant_id=$1 RETURNING business_type,owner_review_threshold_sen,release_owner_threshold_sen,policy_version',[c.actor.tenant_id,b.owner_review_threshold_sen])).rows[0];
+    await event(c,'policy.changed','tenant_settings',c.actor.tenant_id,null,{before_sen:before.owner_review_threshold_sen,after_sen:row.owner_review_threshold_sen,policy_version:row.policy_version,reason:b.reason});
+    return {settings:row};
+  }));
+  // Staff retry after a failed read. Guarded by state and version, so repeats cannot queue a second job.
+  router.post('/receipts/:id/retry-reading', write(versionBody, async (c, b, req) => {
+    const receipt = await one(c.db, 'SELECT * FROM receipts WHERE tenant_id=$1 AND id=$2', [c.actor.tenant_id,z.uuid().parse(req.params.id)]);
+    const order = await lockOrder(c, receipt.order_id); checkVersion(order,b.expected_version); unpaid(order);
+    if(order.current_receipt_id!==receipt.id)fail('STALE_RECEIPT','Newer evidence exists');
+    if(receipt.extraction_state!=='ERROR')fail('NOT_RETRYABLE','Only a failed reading can be tried again');
+    const job=await c.db.query("UPDATE receipt_jobs SET status='PENDING',attempts=0,expected_revision=$3,last_error=NULL,lease_token=NULL,lease_until=NULL WHERE tenant_id=$1 AND receipt_id=$2",[c.actor.tenant_id,receipt.id,receipt.revision]);
+    if(!job.rowCount)fail('NOT_RETRYABLE','This receipt has no image to read');
+    const row=(await c.db.query("UPDATE receipts SET extraction_state='PENDING' WHERE tenant_id=$1 AND id=$2 RETURNING *",[c.actor.tenant_id,receipt.id])).rows[0];
+    await event(c,'receipt.retry_requested','receipt',receipt.id,order.id,{revision:receipt.revision});
+    return {receipt:publicReceipt(row)};
+  }));
   router.post('/receipts/:id/corrections', write(correctionBody, async (c, b, req) => {
     const receipt = await one(c.db, 'SELECT * FROM receipts WHERE tenant_id=$1 AND id=$2', [c.actor.tenant_id,z.uuid().parse(req.params.id)]);
     const order = await lockOrder(c, receipt.order_id); checkVersion(order,b.expected_version); unpaid(order);

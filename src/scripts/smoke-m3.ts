@@ -67,7 +67,7 @@ try{
   });
   await check('Reload restores server session and committed payment/fulfilment activity',async()=>{
     await page!.reload();await expect(page!.getByRole('heading',{name:'DEMO-A-128',exact:true})).toBeVisible();await expect(page!.getByText('Order released. Both payment and fulfilment actions are recorded separately.',{exact:true})).toBeVisible();
-    await expect(page!.getByText('Payment confirmed',{exact:true})).toBeVisible();await expect(page!.getByText('Order released',{exact:true})).toBeVisible();
+    await expect(page!.locator('.timeline').getByText('Payment confirmed',{exact:true})).toBeVisible();await expect(page!.getByText('Order released',{exact:true})).toBeVisible();
   });
   await check('RM780 Cashier-to-Owner handoff, disabled approval until checked and separate high-value release',async()=>{
     await open('DEMO-A-780');await attach('high_value');await checks();await expect(page!.getByRole('button',{name:'Confirm payment',exact:true})).toHaveCount(0);await expect(page!.locator('.reason-list').getByText('Above this shop’s review threshold. The Owner must review and confirm.',{exact:true})).toBeVisible();

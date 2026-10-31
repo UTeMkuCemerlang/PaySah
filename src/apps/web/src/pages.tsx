@@ -35,6 +35,27 @@ export function NewOrder({api}:{api:ApiClient}){
   return <><a className="back-link" href="#orders">← Back to orders</a><div className="page-heading"><div><h1>Create an order</h1><p className="muted">For a deposit, enter only the amount due for this payment.</p></div></div><section className="panel narrow"><Notice error={error}/><form className="form-stack" onSubmit={submit}><label>Order reference<input required maxLength={100} value={reference} onChange={e=>setReference(e.target.value)} placeholder="e.g. DEMO-SALE-001"/></label><label>Amount due (MYR)<input required inputMode="decimal" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="128.00"/></label><p className="muted">The order starts unpaid and on hold. Creating it does not confirm a payment.</p><button className="button primary" disabled={busy}>{busy?'Creating…':'Create synthetic order'}</button></form></section></>;
 }
 
+export function ShopSettings({api,actor}:{api:ApiClient;actor:Actor}){
+  const policy=useResource(s=>api.get<{settings:import('./types.js').ShopSettings}>('/tenant/settings',s),[api]);
+  const [amount,setAmount]=useState(''),[reason,setReason]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState<unknown>(),[saved,setSaved]=useState('');
+  const settings=policy.value?.settings;
+  let preview='';try{preview=amount.trim()?money(amount.trim()==='0'?0:parseSen(amount)):'';}catch{preview='';}
+  async function save(e:FormEvent){e.preventDefault();if(busy||!settings)return;setBusy(true);setError(undefined);setSaved('');try{
+    if(reason.trim().length<3)throw Error('Add a reason for this change.');
+    const value=amount.trim()==='0'?0:parseSen(amount);
+    await api.write('/tenant/settings',{owner_review_threshold_sen:value,expected_policy_version:settings.policy_version,reason:reason.trim()});
+    setSaved(`Saved. Payments above ${money(value)} now need Owner review. Earlier checks must be run again.`);setAmount('');setReason('');policy.refresh();
+  }catch(err){setError(err);policy.refresh();}finally{setBusy(false);}}
+  if(actor.role!=='OWNER')return <Empty title="Owner access required">Only an Owner can change shop settings. Permissions are checked by the server.</Empty>;
+  return <><div className="page-heading"><div><h1>Shop settings</h1><p className="muted">Decide when a payment needs the Owner. Every change is recorded in Activity.</p></div></div>
+    <Notice error={policy.error??error}/>{saved&&<div className="notice success" role="status">{saved}</div>}
+    {settings&&<section className="panel narrow"><div className="evidence-summary settings-summary"><div><span className="eyebrow">Owner review above</span><strong data-testid="review-limit">{money(settings.owner_review_threshold_sen)}</strong><p>Up to this amount, a Cashier can confirm when the evidence matches</p></div><div><span className="eyebrow">Owner release above</span><strong>{money(settings.release_owner_threshold_sen)}</strong><p>Set separately. Not changed here</p></div></div>
+      <form className="form-stack" onSubmit={save}><label>New Owner review limit (MYR)<input required inputMode="decimal" value={amount} onChange={e=>{setAmount(e.target.value);setSaved('');}} placeholder="500.00"/><span className="field-help">{preview?`Payments above ${preview} will need Owner review. Use 0 to review every payment.`:'Enter an amount up to RM 1,000,000.'}</span></label>
+        <label>Reason for this change<textarea required minLength={3} maxLength={500} value={reason} onChange={e=>setReason(e.target.value)} placeholder="Why is the limit changing?"/></label>
+        <p className="fine-print">Missing or invalid bank evidence stays blocked at any limit. Payments already confirmed are not changed. Checks and Owner reviews still open must be run again.</p>
+        <button className="button primary" disabled={busy}>{busy?'Saving…':'Save limit'}</button></form></section>}</>;
+}
+
 export function Approvals({api,actor}:{api:ApiClient;actor:Actor}){
   if(actor.role!=='OWNER')return <Empty title="Owner access required">Choose an Owner account to review approvals. Payment permissions are checked by the server.</Empty>;
   return <OwnerInbox api={api}/>;
