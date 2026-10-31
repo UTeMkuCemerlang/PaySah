@@ -26,18 +26,17 @@ await withFinalistEnvironment(async(base,pool)=>{
   await open(small);await check('normal');await status('Ready to confirm');await shot('1-small-ready');
   await page.getByLabel('I checked the independent demo bank credit.').check();await click('Confirm payment');await status('Waiting for release');await click('Release order');await status('Complete');
 
-  // Large: the owner sends it to review, rejects once, then approves after checking again.
-  await open(large);await check('high_value');await status('Needs the Owner');await click('Request Owner review');await status('Owner decision');await shot('2-large-summary');
-  await page.getByLabel('Decision reason').fill('Want to look again');await click('Reject receipt review');await status('Rejected');await shot('3-rejected');
-  await click('Run checks');await status('Needs the Owner');await click('Request Owner review');await status('Owner decision');
-  await page.getByLabel('Decision reason').fill('Credit matches the receipt');await page.getByLabel('I checked the independent demo bank credit.').check();await click('Approve & confirm payment');await status('Waiting for release');await click('Release order');await status('Complete');await shot('4-large-complete');
+  // Large: no separate review. The Owner confirms directly, after the think-twice prompt.
+  await open(large);await check('high_value');await status('Ready to confirm');await expect(page.getByRole('button',{name:'Request Owner review',exact:true})).toHaveCount(0);await shot('2-large-ready');
+  await page.getByLabel('I checked the independent demo bank credit.').check();await click('Confirm payment');await status('Waiting for release');await click('Release order');await status('Complete');await shot('4-large-complete');
 
-  // A receipt with no bank credit: the owner has no way to pay it through.
+  // A receipt with no bank credit: the Owner can approve it anyway. It is recorded and never shown as paid.
   await open(blocked);await check('no_bank');await status('No bank match');await expect(page.getByRole('button',{name:'Confirm payment',exact:true})).toHaveCount(0);await shot('5-no-bank');
-  await click('Send evidence to Owner');await status('No bank match');await expect(page.getByRole('button',{name:'Approve & confirm payment',exact:true})).toBeDisabled();await shot('6-no-bank-owner-cannot-approve');
+  await page.getByLabel('Reason for approving anyway').fill('Owner knows this customer');await click('Approve anyway');await status('Waiting for release');await expect(page.getByTestId('owner-override')).toHaveCount(0);await click('Release order');await status('Complete');await expect(page.getByTestId('order-story')).toContainText('approved anyway');await shot('6-no-bank-approved-anyway');
+  for(const name of ['Owner reviews','Shop settings'])await expect(page.getByRole('link',{name,exact:true})).toHaveCount(0);
 
   assert.deepEqual(errors,[]);
   await writeFile(resolve(report,'results.json'),JSON.stringify({status:'PASS',mode:'LOCAL_FIXTURE',browser_errors:0},null,2)+'\n');
-  console.log(`PASS: one Owner account completed the small, large, rejection and blocked routes (local fixture). ${report}`);
+  console.log(`PASS: one Owner account completed the small, large and approved-anyway routes (local fixture). ${report}`);
  }finally{await browser.close();}
 },{webRoot:resolve('dist/web')});

@@ -19,18 +19,17 @@ await withFinalistEnvironment(async(base,pool)=>{
   }
   const loginResponse=await fetch(base+'/demo/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:'20000000-0000-4000-8000-000000000001'})});const token=(await loginResponse.json()).token;
   async function api(path:string,body:unknown){const r=await fetch(base+path,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','Idempotency-Key':randomUUID()},body:JSON.stringify(body)});const b=await r.json();assert.ok(r.ok,JSON.stringify(b));return b;}
-  const order=(await api('/orders',{external_id:`FINAL-UI-${randomUUID()}`,total_sen:78000})).order;
-  const receipt=(await api(`/orders/${order.id}/receipts`,{source:'FIXTURE',fixture_id:'high_value',expected_version:1})).receipt;
+  const order=(await api('/orders',{external_id:`FINAL-UI-${randomUUID()}`,total_sen:12800})).order;
+  const receipt=(await api(`/orders/${order.id}/receipts`,{source:'FIXTURE',fixture_id:'no_bank',expected_version:1})).receipt;
   const v=(await api(`/orders/${order.id}/verifications`,{receipt_id:receipt.id,expected_version:1})).verification;
-  await api(`/verifications/${v.id}/approval-requests`,{expected_version:1});
   await login(activity);await activity.getByRole('link',{name:'Activity',exact:true}).click();
   await login(decision);await decision.goto(base.replace('/api/v1','')+`/#orders/${order.id}`);
-  await expect(decision.getByLabel('Decision reason')).toBeVisible();await decision.getByLabel('Decision reason').fill('Synthetic owner rejection; draft survives polling');
+  await expect(decision.getByLabel('Reason for approving anyway')).toBeVisible();await decision.getByLabel('Reason for approving anyway').fill('Synthetic owner approval; draft survives polling');
   // Observe a real completed poll rather than using a fixed sleep.
   await decision.waitForResponse(r=>r.url().endsWith(`/orders/${order.id}/review`)&&r.status()===200,{timeout:12000});
-  await expect(decision.getByLabel('Decision reason')).toHaveValue('Synthetic owner rejection; draft survives polling');
-  const started=performance.now();await decision.getByRole('button',{name:'Reject receipt review',exact:true}).click();
-  await expect(activity.getByText('Owner decision: Rejected',{exact:true})).toBeVisible({timeout:12000});
+  await expect(decision.getByLabel('Reason for approving anyway')).toHaveValue('Synthetic owner approval; draft survives polling');
+  const started=performance.now();decision.once('dialog',d=>void d.accept());await decision.getByRole('button',{name:'Approve anyway',exact:true}).click();
+  await expect(activity.getByText('Owner approved anyway',{exact:true}).first()).toBeVisible({timeout:12000});
   const observedMs=Math.round(performance.now()-started);
   await activity.screenshot({path:resolve(reportDir,'activity-desktop.png'),fullPage:true});
   await decision.screenshot({path:resolve(reportDir,'owner-rejected.png'),fullPage:true});
@@ -46,7 +45,7 @@ await withFinalistEnvironment(async(base,pool)=>{
   assert.equal(await activity.locator('.timeline').innerText(),before);
   await activity.getByRole('button',{name:'Show latest',exact:true}).click();await expect(activity.getByText('Page 1',{exact:true})).toBeVisible();
   const mobile=await browser.newContext({viewport:{width:390,height:844}}),phone=await mobile.newPage();
-  await login(phone,'20000000-0000-4000-8000-000000000006');await expect(phone.getByLabel('Shop settings')).toContainText('RM 200.00');
+  await login(phone,'20000000-0000-4000-8000-000000000006');await expect(phone.getByRole('heading',{name:'Orders',exact:true})).toBeVisible();
   await phone.screenshot({path:resolve(reportDir,'laundry-mobile.png'),fullPage:true});
   assert.ok(await phone.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await mobile.close();assert.deepEqual(errors,[]);

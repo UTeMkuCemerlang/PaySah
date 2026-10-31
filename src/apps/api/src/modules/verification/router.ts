@@ -182,9 +182,9 @@ export function verificationRouter(pool: pg.Pool,config:Config,storage:ReceiptSt
   }
   router.post('/verifications/:id/confirm',write(versionBody,async(c,b,req)=>{
     const state=await current(c,z.uuid().parse(req.params.id));checkVersion(state.order,b.expected_version);
-    // Blocked evidence is reported as blocked first, so a Cashier is not pointed to an Owner who also cannot approve it.
+    // Blocked evidence is reported as blocked first. The Owner uses accept-shortfall to approve it anyway.
     if (!state.result.eligible) fail('EVIDENCE_BLOCKED','Evidence cannot establish full payment');
-    if (state.result.required_role==='OWNER') throw new ApiError(403,'OWNER_APPROVAL_REQUIRED','Use the Owner approval workflow');
+    if (state.result.required_role==='OWNER'&&c.actor.role!=='OWNER') throw new ApiError(403,'OWNER_APPROVAL_REQUIRED','Only the Owner can confirm this payment');
     return pay(c,state);
   }));
   // Owner keeps a short but real bank credit on the order. The balance stays due and the order stays on hold.
@@ -199,13 +199,23 @@ export function verificationRouter(pool: pg.Pool,config:Config,storage:ReceiptSt
     await supersede(c,state.order.id);
     return {order:updated};
   }));
-  // Highest permission: the Owner accepts less than the total. It needs at least one real credit, and is never shown as fully paid.
+  // Owner refuses a short payment. The order stays unpaid and open for new evidence; nothing is allocated.
+  router.post('/verifications/:id/reject-short',write(shortfallBody,async(c,b,req)=>{
+    owner(c.actor);
+    const state=await current(c,z.uuid().parse(req.params.id));checkVersion(state.order,b.expected_version);
+    if(!state.result.partial_eligible)fail('EVIDENCE_BLOCKED','Only a short payment can be rejected here');
+    const approval=(await c.db.query("INSERT INTO approvals(id,tenant_id,order_id,verification_id,requested_by,decided_by,reason,status,decided_at) VALUES ($1,$2,$3,$4,$5,$5,$6,'REJECTED',now()) RETURNING id",[randomUUID(),c.actor.tenant_id,state.order.id,state.v.id,c.actor.id,b.reason])).rows[0];
+    await event(c,'approval.decided','approval',approval.id,state.order.id,{decision:'REJECTED',reason:b.reason,short_payment:true});
+    await supersede(c,state.order.id);
+    return {approval_id:approval.id,status:'REJECTED'};
+  }));
+  // Highest permission: the Owner may approve any order on their own responsibility, with or without bank evidence.
+  // A reason is required, the shortfall is logged, and the order is never shown as fully paid.
   router.post('/orders/:id/accept-shortfall',write(shortfallBody,async(c,b,req)=>{
     owner(c.actor);
     const order=await lockOrder(c,z.uuid().parse(req.params.id));checkVersion(order,b.expected_version);
-    if(order.payment_state!=='PARTIALLY_PAID')fail('PAYMENT_STATE_CONFLICT','Record a real part payment first');
+    unpaid(order);
     const paid_sen=(await c.db.query('SELECT COALESCE(sum(amount_sen),0)::int AS n FROM payment_allocations WHERE tenant_id=$1 AND order_id=$2',[c.actor.tenant_id,order.id])).rows[0].n as number;
-    if(paid_sen<=0)fail('EVIDENCE_BLOCKED','No bank credit is recorded on this order');
     const updated=(await c.db.query("UPDATE orders SET payment_state='MANUALLY_CONFIRMED',version=version+1 WHERE tenant_id=$1 AND id=$2 RETURNING *",[c.actor.tenant_id,order.id])).rows[0];
     await event(c,'payment.shortfall_accepted','order',order.id,order.id,{before:order.payment_state,after:'MANUALLY_CONFIRMED',paid_sen,total_sen:order.total_sen,shortfall_sen:order.total_sen-paid_sen,reason:b.reason,version:updated.version});
     await supersede(c,order.id);

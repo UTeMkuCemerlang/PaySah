@@ -73,9 +73,21 @@ test('Mock customer payment: signed event becomes evidence, rules decide, a pers
    const confirmed=await call(`/verifications/${final.id}/confirm`,cashier,{expected_version:2});assert.equal(confirmed.status,200);assert.equal(confirmed.body.order.payment_state,'PAID');
    const allocations=(await pool!.query('SELECT sum(amount_sen)::int AS total,count(*)::int AS n FROM payment_allocations WHERE order_id=$1',[o.id])).rows[0];assert.deepEqual(allocations,{total:12800,n:2});
   });
-  await t.test('Owner can accept a difference only after a real credit, with a reason, and it is never shown as fully paid',async()=>{
+  await t.test('Owner can reject a short payment: nothing is allocated and the same order takes a new payment',async()=>{
+   const {o,verification}=await paid(12800,'12.80');
+   assert.equal(verification.result.partial_eligible,true);
+   assert.equal((await call(`/verifications/${verification.id}/reject-short`,cashier,{expected_version:1,reason:'Wrong amount'})).status,403);
+   assert.equal((await call(`/verifications/${verification.id}/reject-short`,owner,{expected_version:1,reason:''})).status,422);
+   const rejected=await call(`/verifications/${verification.id}/reject-short`,owner,{expected_version:1,reason:'Customer missed a zero'});assert.equal(rejected.status,200);assert.equal(rejected.body.status,'REJECTED');
+   const review=(await call(`/orders/${o.id}/review`,owner)).body;assert.equal(review.order.payment_state,'UNPAID');assert.equal(review.allocations.length,0);assert.equal(review.approvals[0].reason,'Customer missed a zero');
+   assert.equal((await call(`/verifications/${verification.id}/reject-short`,owner,{expected_version:1,reason:'Again'})).status,409);
+   const again=await call(`/orders/${o.id}/payment-links`,owner,{expected_version:1});assert.equal((await pay(again.body.url,'128.00')).status,200);
+   const latest=(await call(`/orders/${o.id}/review`,owner)).body.receipts[0];
+   const checked=(await call(`/orders/${o.id}/verifications`,owner,{receipt_id:latest.id,expected_version:1})).body.verification;assert.equal(checked.result.eligible,true);
+   assert.equal((await call(`/verifications/${checked.id}/confirm`,owner,{expected_version:1})).body.order.payment_state,'PAID');
+  });
+  await t.test('Owner can accept a difference with a reason, and it is never shown as fully paid',async()=>{
    const {o,verification}=await paid(12000,'110.00');
-   assert.equal((await call(`/orders/${o.id}/accept-shortfall`,owner,{expected_version:1,reason:'Regular customer'})).status,409);
    assert.equal((await call(`/verifications/${verification.id}/record-partial`,owner,{expected_version:1})).status,200);
    assert.equal((await call(`/orders/${o.id}/accept-shortfall`,cashier,{expected_version:2,reason:'Regular customer'})).status,403);
    assert.equal((await call(`/orders/${o.id}/accept-shortfall`,owner,{expected_version:2,reason:''})).status,422);
@@ -84,13 +96,18 @@ test('Mock customer payment: signed event becomes evidence, rules decide, a pers
    const released=await call(`/orders/${o.id}/release`,owner,{expected_version:3});assert.equal(released.status,200);assert.equal(released.body.order.fulfillment_state,'RELEASED');assert.equal(released.body.order.payment_state,'MANUALLY_CONFIRMED');
    const logged=(await call(`/activity?order_id=${o.id}&limit=50`,owner)).body.events.find((e:any)=>e.action==='payment.shortfall_accepted');assert.equal(logged.payload.shortfall_sen,1000);assert.equal(logged.payload.reason,'Regular customer');
   });
-  await t.test('no bank credit means no part payment, even for the Owner',async()=>{
+  await t.test('no bank credit cannot be recorded or confirmed as payment, but the Owner can approve anyway on the record',async()=>{
    const o=await order(12800),receipt=(await call(`/orders/${o.id}/receipts`,owner,{source:'FIXTURE',fixture_id:'no_bank',expected_version:1})).body.receipt;
    const v=(await call(`/orders/${o.id}/verifications`,owner,{receipt_id:receipt.id,expected_version:1})).body.verification;
    assert.equal(v.result.partial_eligible,false);
    const denied=await call(`/verifications/${v.id}/record-partial`,owner,{expected_version:1});assert.equal(denied.status,409);assert.equal(denied.body.code,'EVIDENCE_BLOCKED');
-   assert.equal((await call(`/orders/${o.id}/accept-shortfall`,owner,{expected_version:1,reason:'Trust the customer'})).status,409);
    assert.equal((await call(`/orders/${o.id}/release`,owner,{expected_version:1})).status,409);
+   assert.equal((await call(`/verifications/${v.id}/confirm`,owner,{expected_version:1})).status,409);
+   assert.equal((await call(`/orders/${o.id}/accept-shortfall`,owner,{expected_version:1,reason:''})).status,422);
+   // Full Owner authority: approved anyway, on record, and not shown as paid.
+   const anyway=await call(`/orders/${o.id}/accept-shortfall`,owner,{expected_version:1,reason:'Owner knows this customer'});assert.equal(anyway.status,200);assert.equal(anyway.body.order.payment_state,'MANUALLY_CONFIRMED');
+   const logged=(await call(`/activity?order_id=${o.id}&limit=50`,owner)).body.events.find((e:any)=>e.action==='payment.shortfall_accepted');assert.equal(logged.payload.shortfall_sen,12800);assert.equal(logged.payload.paid_sen,0);
+   assert.equal((await call(`/orders/${o.id}/release`,owner,{expected_version:2})).status,200);
   });
   await t.test('a large payment still needs the Owner',async()=>{
    const {verification}=await paid(78000,'780.00');assert.equal(verification.result.eligible,true);assert.equal(verification.result.required_role,'OWNER');

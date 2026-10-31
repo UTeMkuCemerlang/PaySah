@@ -17,46 +17,19 @@ Use only the Demo A Owner account. `npx tsx scripts/smoke-owner-only.ts` (from `
 | --- | --- | --- |
 | 1 | New order, RM128. Attach **Normal · RM 128**, **Run checks** | "Ready to confirm" |
 | 2 | Tick the bank credit box, **Confirm payment**, then **Release order** | "Waiting for release", then "Complete" |
-| 3 | New order, RM780. Attach **High value · RM 780**, **Run checks**, **Request Owner review** | "Owner decision" and the decision summary |
-| 4 | Enter a reason, **Reject receipt review** | "Rejected", with the reason; order stays Unpaid |
-| 5 | **Run checks**, **Request Owner review**, enter a reason, tick the box, **Approve & confirm payment**, **Release order** | "Complete" |
-| 6 | New order, RM128. Attach **No matching bank credit**, **Run checks** | "No bank match"; no way to confirm payment |
-| 7 | **View order record** on the RM780 order, then **Shop settings** | The plain record, and the review limit the owner sets |
+| 3 | New order, RM780. Attach **High value · RM 780**, **Run checks** | "Ready to confirm", with a note to check it carefully |
+| 4 | Tick the bank credit box, **Confirm payment**, accept the think-twice prompt, **Release order** | "Complete" |
+| 5 | **View order record** on the RM780 order | The plain record |
+| 6 | New order, RM128. Attach **No matching bank credit**, **Run checks** | "No bank match"; **Confirm payment** is not offered |
+| 7 | Under **Approve anyway**, enter a reason and accept the think-twice prompt, then **Release order** | "Complete". The order shows Manually confirmed, not Paid, and the record keeps the reason and the amount not covered by bank evidence |
 
 Steps 1 and 6 use receipts and credits that are shared with other demo orders, so a repeat run needs **Reset demo data**. On a shared or live deployment, expect "already been used" otherwise.
 
-One owner still confirms every payment by hand. PaySah does not confirm any payment by itself. Above the limit, the owner sends the case to review and then decides, so the words "Request Owner review" appear even when they are the only person in the shop.
+One owner still confirms every payment by hand. PaySah does not confirm any payment by itself. PaySah warns and holds by default. The Owner has the final word, on their own responsibility, and every override is recorded and never shown as Paid.
 
-## Backup: a shop with staff, rejection then approval
+## Route 2: one blocked receipt
 
-| # | Who | Do this | You should see |
-| --- | --- | --- | --- |
-| 1 | Demo A Cashier | **+ New order**, reference `REHEARSAL-780`, amount `780.00` | "No receipt yet" |
-| 2 | Cashier | Choose **High value · RM 780**, **Attach synthetic receipt** | "Ready to check" |
-| 3 | Cashier | **Run checks** | "Needs the Owner"; Next step: Request Owner review |
-| 4 | Cashier | **Request Owner review** | "Waiting for the Owner" |
-| 5 | Demo A Owner | Open the order | "Owner decision" and a summary of amounts, bank credit, why the Owner, manual changes and whether the evidence is current |
-| 6 | Owner | Enter a reason, **Reject receipt review** | "Rejected"; order stays Unpaid |
-| 7 | Cashier | Open the order | The rejection reason and **Correct fields now** |
-| 8 | Cashier | **Run checks**, **Request Owner review** | "Waiting for the Owner" again |
-| 9 | Owner | Enter a reason, tick the bank credit box, **Approve & confirm payment** | "Waiting for release"; Paid, still On hold |
-| 10 | Owner | **Release order** | "Complete" |
-| 11 | Anyone | **View order record** | Requested, rejected, requested, approved, confirmed, released, with `Payment status: Unpaid → Paid` |
-
-Point to make at step 5: "Approving confirms payment. Release is still a separate step."
-
-## Route 2: same RM300, two shops
-
-| # | Who | Do this | You should see |
-| --- | --- | --- | --- |
-| 1 | Demo A Cashier | Open `FINAL-BAKERY-300`, attach **bakery_300**, **Run checks** | "Ready to confirm" |
-| 2 | Laundry Cashier | Open `FINAL-LAUNDRY-300`, attach **laundry_300**, **Run checks** | "Needs the Owner" |
-
-Each shop has its own order, receipt and bank credit. To show the control, sign in as the Owner, open **Shop settings**, lower the limit, then run the same check again: the order now needs the Owner and Activity records the change. **Reset demo data** restores the shop's limit. Each order can be confirmed once, so stop at the checks unless you plan to reset. Whether these two orders exist on a deployment depends on its data, so confirm them first.
-
-## Route 3: one blocked receipt
-
-Follow any case in [EXCEPTION_DEMO.md](EXCEPTION_DEMO.md). A good choice is **No bank credit**: the page says "No bank match" and the Owner cannot approve it through.
+Follow any case in [EXCEPTION_DEMO.md](EXCEPTION_DEMO.md). A good choice is **No bank credit**: the page says "No bank match", and only **Approve anyway** can move it forward.
 
 ## If something fails
 

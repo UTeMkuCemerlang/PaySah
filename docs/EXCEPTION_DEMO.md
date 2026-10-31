@@ -23,7 +23,7 @@ Create the order as Demo A Cashier unless stated. "Verify" means the verificatio
 | --- | --- | --- | --- |
 | Partial payment | `partial` (RM50) on a new RM128 order | `PARTIAL_PAYMENT` | `NEEDS_REVIEW`, not eligible; confirm returns 409 `EVIDENCE_BLOCKED`; order stays UNPAID |
 | Overpayment | `normal` (RM128) on a new RM100 order | `OVERPAYMENT` | Not eligible, same blocking |
-| Wrong recipient | `wrong_account` on a new RM128 order | `WRONG_RECIPIENT`, `BANK_NOT_FOUND` | `INVALID_EVIDENCE`; Owner approval cannot override |
+| Wrong recipient | `wrong_account` on a new RM128 order | `WRONG_RECIPIENT`, `BANK_NOT_FOUND` | `INVALID_EVIDENCE`; only **Approve anyway** can move it forward |
 | Scheduled transfer | `scheduled` on a new RM128 order | `TRANSFER_NOT_COMPLETE` (plus `DUPLICATE_REFERENCE` if the reference was already used) | `INVALID_EVIDENCE` |
 | No bank credit | `no_bank` on a new RM128 order | `BANK_NOT_FOUND` | `AWAITING_BANK` |
 | Money request | `money_request` | `MONEY_REQUEST` (plus `DUPLICATE_REFERENCE` if the reference was already used) | `INVALID_EVIDENCE` |
@@ -50,7 +50,7 @@ Requires `EXTRACTOR_MODE=runpod` and a live endpoint, which this script does not
 
 ## Short payment
 
-A short receipt with a real, unused credit shows "Short payment". The Owner can **Record RM x as part payment**, then send another link on the same order, or send the case to review and reject it. If the Owner chooses to accept less, **Accept the difference** needs a reason and shows "Accepted by Owner", not Paid. With no bank credit, none of this is available.
+A short receipt with a real, unused credit shows "Short payment". The Owner can **Keep RM x and open another submission**, then send another link on the same order, or **Reject this payment** with a reason, which leaves the order unpaid and open. For any blocked order, with or without a bank credit, the Owner can use **Approve anyway**. It needs a reason and a think-twice prompt, and the order shows as manually confirmed by the Owner, not Paid.
 
 ## Automated coverage
 

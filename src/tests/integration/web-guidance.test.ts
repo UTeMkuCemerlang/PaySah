@@ -16,7 +16,7 @@ test('every state names what is happening and the next step',()=>{
   assert.equal(guide({payment_state:'MANUALLY_CONFIRMED'}).next,'Ask an Owner to release this order.');
   assert.equal(guide({eligible:true,flags:['HIGH_VALUE']}).next,'Request Owner review.');
   assert.equal(guide({eligible:true,pending_approval:true}).category,'Waiting for the Owner');
-  assert.equal(guide({eligible:true,pending_approval:true,role:'OWNER'}).category,'Owner decision');
+  assert.equal(guide({eligible:true,pending_approval:true,role:'OWNER'}).category,'Ready to confirm');
   assert.equal(guide({rejected:true,current:false}).category,'Rejected');
   assert.equal(guide({payment_state:'PAID'}).category,'Waiting for release');
   assert.equal(guide({payment_state:'PAID',owner_must_release:true}).next,'Ask an Owner to release this order.');

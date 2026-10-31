@@ -32,7 +32,7 @@ try{
  page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(20000);
  await page.goto(base+'/#orders/'+order.id);await expect(page.getByRole('heading',{name:order.external_id,exact:true})).toBeVisible();
  await expect(page.getByRole('img',{name:'Original synthetic receipt'})).toHaveCount(0);
- await expect(page.getByRole('button',{name:'Create Telegram link'})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Create Telegram link'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Create mock payment link',exact:true})).toBeDisabled();await expect(page.getByText('Mock payment is not turned on for this server.')).toBeVisible();
  await page.getByRole('button',{name:'Create Google Form link',exact:true}).click();const input=page.getByLabel('Copy receipt submission link');await expect(input).toBeVisible();
  const token=new URL(await input.inputValue()).searchParams.get('entry.1');assert.ok(token);
  const img=await sharp({create:{width:60,height:40,channels:3,background:'yellow'}}).png().toBuffer();

@@ -16,7 +16,7 @@ function blocked(flags:string[],provider?:string):Guidance{
   if(has(flags,'INVALID_RECEIPT'))return {category:'Missing details',title:'Some details could not be read from this receipt.',next:machine?'Check the image and correct the fields, or ask the customer for a clear, upright image.':'Enter the missing fields from the image.',tone:'fix'};
   if(has(flags,'WRONG_RECIPIENT'))return {category:'Evidence problem',title:'The receiving account does not match this shop.',next:machine?'Compare with the image. Correct the field if it was misread. If it is right, do not confirm.':'Do not confirm. Ask the customer for a receipt to the correct account.',tone:'fix'};
   if(has(flags,'MONEY_REQUEST','TRANSFER_NOT_COMPLETE'))return {category:'Evidence problem',title:'This does not show a completed transfer.',next:'Ask the customer for a receipt of the completed transfer.',tone:'fix'};
-  if(has(flags,'PARTIAL_PAYMENT','OVERPAYMENT'))return {category:'Evidence problem',title:'The receipt amount does not match the order.',next:'Check the amount with the image, then ask the customer or the Owner to resolve it.',tone:'fix'};
+  if(has(flags,'PARTIAL_PAYMENT','OVERPAYMENT'))return {category:'Evidence problem',title:'The receipt amount does not match the order.',next:'Check the amount with the image, then ask the customer to resolve it.',tone:'fix'};
   if(has(flags,'DUPLICATE_IMAGE','DUPLICATE_EVIDENCE','TRANSACTION_ALREADY_USED'))return {category:'Evidence problem',title:'This evidence has already been used.',next:'Do not confirm. Check the other order or ask for different evidence.',tone:'fix'};
   if(has(flags,'BANK_NOT_FOUND','AMOUNT_MISMATCH','AMBIGUOUS_MATCH'))return {category:'No bank match',title:'No matching bank credit has been found yet.',next:'Check the evidence, or run the checks again later.',tone:'fix'};
   return {category:'Evidence problem',title:'This evidence cannot confirm payment.',next:'Review the reasons below and obtain valid evidence.',tone:'fix'};
@@ -24,18 +24,19 @@ function blocked(flags:string[],provider?:string):Guidance{
 
 export function guidanceFor(s:GuidanceInput):Guidance{
   if(s.fulfillment_state==='RELEASED')return {category:'Complete',title:'Payment and release are both recorded.',next:'Nothing more is needed.',tone:'done'};
-  if(s.payment_state==='MANUALLY_CONFIRMED')return {category:'Waiting for release',title:'The Owner accepted this payment, including a difference.',next:s.role==='OWNER'?'Release the order when it is ready.':'Ask an Owner to release this order.',tone:'act'};
+  if(s.payment_state==='MANUALLY_CONFIRMED')return {category:'Waiting for release',title:'The Owner approved this order on their own responsibility.',next:s.role==='OWNER'?'Release the order when it is ready.':'Ask an Owner to release this order.',tone:'act'};
   if(s.payment_state==='PAID')return {category:'Waiting for release',title:'Payment is confirmed. The order has not been handed over.',next:s.owner_must_release&&s.role!=='OWNER'?'Ask an Owner to release this order.':'Release the order when it is ready.',tone:'act'};
   if(!s.receipt)return {category:'No receipt yet',title:'This order has no receipt.',next:'Add a receipt, or send the customer a submission link.',tone:'act'};
   if(['PENDING','RUNNING'].includes(s.receipt.extraction_state))return {category:'Reading',title:'Reading the receipt.',next:'Wait. This page updates by itself, so there is no need to send it again.',tone:'wait'};
   if(s.receipt.extraction_state==='ERROR')return {category:'Reading failed',title:'The receipt could not be read. The order stays unpaid.',next:'Try reading again, or check the image and enter the fields.',tone:'fix'};
-  if(s.rejected)return {category:'Rejected',title:'The Owner rejected this review. The order is still unpaid.',next:'See the reason, correct the fields or add new evidence, then run the checks again.',tone:'fix'};
-  if(s.payment_state==='PARTIALLY_PAID'&&s.receipt_counted)return {category:'Part paid',title:'Part of this order is paid. The balance is still due.',next:s.role==='OWNER'?'Send another payment link, or accept the difference and release.':'Send another payment link, or ask the Owner.',tone:'act'};
+  if(s.rejected)return {category:'Rejected',title:'The Owner rejected this. The order is still unpaid.',next:'See the reason, correct the fields or add new evidence, then run the checks again.',tone:'fix'};
+  if(s.payment_state==='PARTIALLY_PAID'&&s.receipt_counted)return {category:'Part paid',title:'Part of this order is paid. The balance is still due.',next:s.role==='OWNER'?'Send another payment link, or approve it anyway on your own responsibility.':'Send another payment link, or ask the Owner.',tone:'act'};
   if(!s.current)return {category:'Ready to check',title:'This receipt has not been checked against bank evidence.',next:'Review the fields, then run the checks.',tone:'act'};
-  if(!s.eligible&&s.partial_eligible)return {category:'Short payment',title:'The money arrived, but it is less than what is due.',next:s.role==='OWNER'?'Record it as part payment and ask for the rest, or reject it.':'Send it to the Owner to record or reject.',tone:'fix'};
+  if(!s.eligible&&s.partial_eligible)return {category:'Short payment',title:'The money arrived, but it is less than what is due.',next:s.role==='OWNER'?'Keep it and open another submission, reject it, or approve it anyway.':'Send it to the Owner to record or reject.',tone:'fix'};
   if(!s.eligible)return blocked(s.flags,s.receipt.fields_provider);
+  if(s.required_role==='OWNER'&&s.role==='OWNER')return {category:'Ready to confirm',title:'The evidence matches. Look at the note below before you confirm.',next:'Check the bank credit, then confirm payment.',tone:'act'};
   if(s.required_role==='OWNER'){
-    if(s.pending_approval)return s.role==='OWNER'?{category:'Owner decision',title:'The evidence meets the requirements. Your decision is needed.',next:'Review the summary, then approve or reject.',tone:'act'}:{category:'Waiting for the Owner',title:'Sent for Owner review. The order stays on hold.',next:'Wait for the Owner, or switch to the Owner account.',tone:'wait'};
+    if(s.pending_approval)return {category:'Waiting for the Owner',title:'Sent for Owner review. The order stays on hold.',next:'Wait for the Owner, or switch to the Owner account.',tone:'wait'};
     return {category:'Needs the Owner',title:'The evidence meets the requirements, but the Owner must confirm.',next:'Request Owner review.',tone:'act'};
   }
   return {category:'Ready to confirm',title:'The evidence matches. Payment is not confirmed yet.',next:'Check the bank credit, then confirm payment.',tone:'act'};
@@ -54,7 +55,7 @@ export function storyLine(events:Array<{action:string;actor_name:string;payload:
       case 'access.denied':return `${e.actor_name} was blocked`;
       case 'approval.decided':return `${e.actor_name} ${e.payload.decision==='APPROVED'?'approved':'rejected'}`;
       case 'payment.partial_recorded':return 'Part payment recorded';
-      case 'payment.shortfall_accepted':return `${e.actor_name} accepted the difference`;
+      case 'payment.shortfall_accepted':return `${e.actor_name} approved anyway`;
       case 'payment.confirmed':return 'Payment confirmed';
       case 'fulfillment.released':return `${e.actor_name} released the order`;
       default:return null;
